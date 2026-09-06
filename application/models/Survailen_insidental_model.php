@@ -10,7 +10,7 @@ class Survailen_insidental_model extends CI_Model
         $sql = '
             SELECT
                 accidental.id,
-                accidental.id_izin,
+                grouped_accidental.id_izin,
                 accidental.nib,
                 accidental.nama_bu,
                 accidental.jenis_temuan,
@@ -20,7 +20,14 @@ class Survailen_insidental_model extends CI_Model
                 accidental.created_at
             FROM ' . $this->table . ' accidental
             INNER JOIN (
-                SELECT nib, MAX(id) AS latest_id
+                SELECT
+                    nib,
+                    MAX(id) AS latest_id,
+                    GROUP_CONCAT(
+                        DISTINCT NULLIF(TRIM(id_izin), \'\')
+                        ORDER BY id_izin
+                        SEPARATOR \', \'
+                    ) AS id_izin
                 FROM ' . $this->table . '
                 GROUP BY nib
             ) grouped_accidental
