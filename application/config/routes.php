@@ -51,6 +51,7 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 */
 $route['survailen-insidental'] = 'survailen_insidental/index';
 $route['survailen-insidental/detail/(:any)'] = 'survailen_insidental/detail/$1';
+$route['survailen-insidental/simpan-penilaian'] = 'survailen_insidental/simpan_penilaian';
 $route['default_controller'] = 'Login';
 $route['404_override'] = '';
 $route['translate_uri_dashes'] = FALSE;

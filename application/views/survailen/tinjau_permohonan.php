@@ -223,7 +223,7 @@
 									<input type="hidden" id="count_nomer" value="0">
 									<div class="col-md-12">
 										<div class="table-responsive">
-											<?php echo form_open_multipart(base_url('survailen/insert_penilaian'), 'method="POST"');?>
+											<?php echo form_open_multipart(isset($penilaian_action) ? $penilaian_action : base_url('survailen/insert_penilaian'), 'method="POST"');?>
 											<table class="table table-lg">
 												<thead>
 													<tr>
@@ -255,7 +255,7 @@
 																<span class="file-caption-icon"></span>
 																<input type="text" name="tempat_pelaksanaan"
 																	class="form-control form-control-solid"
-																	value="<?php echo $biodata[0]['id_propinsi'] ;?>">
+																	value="<?php echo !empty($biodata) ? $biodata[0]['id_propinsi'] : '' ;?>">
 
 															</div>
 														</td>
@@ -357,7 +357,7 @@
 														<td>#Hasil Perbaikan/Tindak Lanjut </td>
 														<td>
 															<div class="input-group file-caption-main">
-																<select name="hasil_akhir"
+																<select name="<?php echo !empty($is_insidental) ? 'hasil_tindak_lanjut' : 'hasil_akhir'; ?>"
 																	class="form-control h-auto form-control-solid py-4 px-8"
 																	required="required" onchange="getval2(this)">
 																	<option value="-">Pilih Hasil Perbaikan</option>
@@ -631,7 +631,7 @@
 															<tr>
 																<td>Propinsi</td>
 																<td><span
-																		class="text-dark"><?php echo $biodata[0]['id_propinsi'] ;?></span>
+																		class="text-dark"><?php echo !empty($biodata) ? $biodata[0]['id_propinsi'] : '' ;?></span>
 																</td>
 															</tr>
 															<tr>
@@ -666,7 +666,7 @@
 																</td>
 															</tr>
 															<input type="hidden" name="email"
-																value="<?=$klasifikasi[0]['user_email'] ;?>">
+																value="<?=!empty($klasifikasi) && isset($klasifikasi[0]['user_email']) ? $klasifikasi[0]['user_email'] : '' ;?>">
 
 
 															<tr>
@@ -806,7 +806,7 @@
 																			</td>
 																		</tr>
 																		<input type="hidden" name="email"
-																			value="<?=$klasifikasi[0]['user_email'] ;?>">
+																			value="<?=!empty($klasifikasi) && isset($klasifikasi[0]['user_email']) ? $klasifikasi[0]['user_email'] : '' ;?>">
 
 
 																		<tr>

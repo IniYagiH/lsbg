@@ -7,6 +7,7 @@ class Survailen_insidental extends CI_Controller
     {
         parent::__construct();
         $this->load->model('Survailen_insidental_model', 'survailen_insidental');
+        $this->load->model('bu/Bu_model');
         $this->load->library('Template');
         $this->load->helper('ssl');
     }
@@ -52,87 +53,146 @@ class Survailen_insidental extends CI_Controller
             return;
         }
 
-        if (empty($token)) {
+        $nib = $this->decode_nib($token);
+        if ($nib === false) {
             show_404();
             return;
         }
 
-        $nib = decrypt_url($token);
-        if ($nib === false || trim((string) $nib) === '') {
-            show_404();
-            return;
-        }
-
-        $records = $this->survailen_insidental->get_by_nib((string) $nib);
+        $records = $this->survailen_insidental->get_by_nib($nib);
         if (empty($records)) {
             show_404();
             return;
         }
 
         $latest = $records[0];
-        $history = array();
-        $permit_ids = array();
-        $assessors = array();
-
-        foreach ($records as $record) {
-            $history[] = $this->prepare_record($record);
-
-            $permit_id = trim((string) $record->id_izin);
-            if ($permit_id !== '') {
-                $permit_ids[$permit_id] = html_escape($permit_id);
-            }
-
-            foreach (array('asesor_1', 'asesor_2', 'asesor_3') as $assessor_column) {
-                $assessor = trim((string) $record->{$assessor_column});
-                if ($assessor !== '') {
-                    $assessors[$assessor] = html_escape($assessor);
-                }
-            }
+        $penilaian = $this->survailen_insidental->get_assessment_by_nib($nib);
+        if (empty($penilaian)) {
+            $penilaian = array(array(
+                'ketidaksesuaian' => $latest->uraian_temuan,
+            ));
         }
 
-        ksort($permit_ids, SORT_NATURAL);
-        ksort($assessors, SORT_NATURAL);
-
         $data = array(
-            'badan_usaha' => array(
-                'nama_bu' => $this->display_value($latest->nama_bu),
-                'nib' => $this->display_value($latest->nib),
-                'total_temuan' => count($records),
-            ),
-            'id_izin_list' => array_values($permit_ids),
-            'assessor_list' => array_values($assessors),
-            'temuan_terbaru' => $history[0],
-            'riwayat_temuan' => $history,
+            'biodata' => $this->Bu_model->biodata_opr($nib),
+            'biodata_perubahan' => $this->Bu_model->biodata_opr_izin_survailen($nib),
+            'pengurus' => $this->Bu_model->pengurus_opr($nib),
+            'pengurus_perubahan' => array(),
+            'penjualan_tahunan' => $this->Bu_model->pengalaman_opr($nib),
+            'penjualan_tahunan_perubahan' => $this->Bu_model->pengalaman_opr_izin_survailen($nib),
+            'akte' => $this->Bu_model->akte_opr($nib),
+            'akte_perubahan' => $this->Bu_model->akte_opr_izin_survailen($nib),
+            'smap' => $this->Bu_model->smap_opr($nib),
+            'smap_perubahan' => $this->Bu_model->smap_opr_izin_survailen($nib),
+            'neraca' => $this->Bu_model->neraca_ski($nib),
+            'neraca_perubahan' => $this->Bu_model->neraca_ski_izin_survailen($nib),
+            'pemegang_saham' => $this->Bu_model->pemegang_saham_opr($nib),
+            'pemegang_saham_perubahan' => array(),
+            'pjbu' => $this->Bu_model->pjbu_opr($nib),
+            'pjbu_perubahan' => $this->Bu_model->pjbu_opr_izin_survailen($nib),
+            'pjskbu' => $this->Bu_model->pjskbu_opr($nib),
+            'pjskbu_perubahan' => $this->Bu_model->pjskbu_opr_izin_survailen($nib),
+            'pjtbu' => $this->Bu_model->pjtbu_opr($nib),
+            'pjtbu_perubahan' => $this->Bu_model->pjtbu_opr_izin_survailen($nib),
+            'peralatan' => $this->Bu_model->peralatan_opr($nib),
+            'peralatan_perubahan' => $this->Bu_model->peralatan_opr_izin_survailen($nib),
+            'kepemilikan_peralatan' => $this->Bu_model->kepemilikan_peralatan_opr($nib),
+            'data_check' => array(),
+            'klasifikasi' => $this->Bu_model->klasifikasi_kualifikasi_opr2_terbit($nib),
+            'id1' => $token,
+            'id2' => encrypt_url((string) $latest->id),
+            'penilaian' => $penilaian,
+            'penilaian_action' => base_url('survailen-insidental/simpan-penilaian'),
+            'is_insidental' => true,
+            'accidental_nib' => html_escape($nib),
+            'accidental_nama_bu' => html_escape($latest->nama_bu),
         );
 
         $this->template->load('menu/menu', 'survailen_insidental/detail', $data);
     }
 
-    private function prepare_record($record)
+    public function simpan_penilaian()
     {
-        return array(
-            'id' => (int) $record->id,
-            'id_izin' => $this->display_value($record->id_izin),
-            'jenis_temuan' => $this->display_value($this->format_label($record->jenis_temuan)),
-            'uraian_temuan' => $this->display_multiline($record->uraian_temuan),
-            'detail_temuan' => $this->display_multiline($record->detail_temuan),
-            'tgl_temuan' => $this->format_date($record->tgl_temuan),
-            'tgl_temuan_order' => $this->date_order_value($record->tgl_temuan),
-            'status' => $this->status_badge($record->status),
-            'tgl_permohonan' => $this->format_date($record->tgl_permohonan),
-            'tgl_penunjukan' => $this->format_date($record->tgl_penunjukan),
-            'user_penunjukan' => $this->display_value($record->user_penunjukan),
-            'tgl_penilaian' => $this->format_date($record->tgl_penilaian),
-            'user_penilaian' => $this->display_value($record->user_penilaian),
-            'asesor_1' => $this->display_value($record->asesor_1),
-            'asesor_2' => $this->display_value($record->asesor_2),
-            'asesor_3' => $this->display_value($record->asesor_3),
-            'keputusan' => $this->display_value($record->keputusan),
-            'comment' => $this->display_multiline($record->comment),
-            'sumber_data' => $this->display_value($record->sumber_data),
-            'created_at' => $this->format_datetime($record->created_at),
-            'updated_at' => $this->format_datetime($record->updated_at),
+        if (!$this->has_access()) {
+            $this->deny_access();
+            return;
+        }
+
+        $token = trim((string) $this->input->post('id1'));
+        $nib = $this->decode_nib($token);
+        if ($nib === false) {
+            show_404();
+            return;
+        }
+
+        $records = $this->survailen_insidental->get_by_nib($nib);
+        if (empty($records)) {
+            show_404();
+            return;
+        }
+
+        $latest = $records[0];
+        $data = array(
+            'id_survailen_accidental' => (int) $latest->id,
+            'id_asesor' => $this->session->userdata('id_user'),
+            'tgl_pelaksanaan' => $this->post_date('tgl_pelaksanaan'),
+            'tempat_pelaksanaan' => $this->post_value('tempat_pelaksanaan'),
+            'ketidaksesuaian' => $this->post_value('ketidaksesuaian'),
+            'referensi' => $this->post_value('referensi'),
+            'rencana_perbaikan' => $this->post_value('rencana_perbaikan'),
+            'tgl_selesai' => $this->post_date('tgl_selesai'),
+            'jenis_temuan' => $this->post_boolean('jenis_temuan'),
+            'hasil_akhir' => $this->post_boolean('hasil_akhir'),
+            'hasil_tindak_lanjut' => $this->post_boolean('hasil_tindak_lanjut'),
         );
+
+        if ($this->survailen_insidental->save_assessment($nib, $data)) {
+            $this->session->set_flashdata('title', 'Submit Berhasil');
+            $this->session->set_flashdata('text', 'Penilaian survailen insidental berhasil disimpan');
+            $this->session->set_flashdata('class', 'success');
+        } else {
+            $this->session->set_flashdata('title', 'Submit Gagal');
+            $this->session->set_flashdata('text', 'Penilaian survailen insidental gagal disimpan');
+            $this->session->set_flashdata('class', 'error');
+        }
+
+        redirect('survailen-insidental/detail/' . $token, 'refresh');
+    }
+
+    private function decode_nib($token)
+    {
+        if (empty($token)) {
+            return false;
+        }
+
+        $nib = decrypt_url($token);
+        if ($nib === false || trim((string) $nib) === '') {
+            return false;
+        }
+
+        return trim((string) $nib);
+    }
+
+    private function post_value($field)
+    {
+        return trim((string) $this->security->xss_clean($this->input->post($field)));
+    }
+
+    private function post_date($field)
+    {
+        $value = $this->post_value($field);
+        if ($value === '') {
+            return null;
+        }
+
+        $date = DateTime::createFromFormat('Y-m-d', $value);
+        return $date && $date->format('Y-m-d') === $value ? $value : null;
+    }
+
+    private function post_boolean($field)
+    {
+        $value = $this->post_value($field);
+        return $value === '0' || $value === '1' ? (int) $value : null;
     }
 
     private function has_access()
@@ -149,24 +209,6 @@ class Survailen_insidental extends CI_Controller
         redirect('login', 'refresh');
     }
 
-    private function display_value($value)
-    {
-        if ($value === null || trim((string) $value) === '') {
-            return '<span class="text-muted">-</span>';
-        }
-
-        return html_escape($value);
-    }
-
-    private function display_multiline($value)
-    {
-        if ($value === null || trim((string) $value) === '') {
-            return '<span class="text-muted">-</span>';
-        }
-
-        return nl2br(html_escape($value));
-    }
-
     private function format_label($value)
     {
         return ucwords(strtolower(str_replace('_', ' ', (string) $value)));
@@ -180,21 +222,6 @@ class Survailen_insidental extends CI_Controller
 
         $timestamp = strtotime($value);
         return $timestamp ? date('d-m-Y', $timestamp) : html_escape($value);
-    }
-
-    private function date_order_value($value)
-    {
-        return empty($value) || $value === '0000-00-00' ? '' : html_escape($value);
-    }
-
-    private function format_datetime($value)
-    {
-        if (empty($value) || $value === '0000-00-00 00:00:00') {
-            return '<span class="text-muted">-</span>';
-        }
-
-        $timestamp = strtotime($value);
-        return $timestamp ? date('d-m-Y H:i', $timestamp) : html_escape($value);
     }
 
     private function status_badge($status)
