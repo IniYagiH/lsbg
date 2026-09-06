@@ -57,7 +57,7 @@
                                         <td data-order="<?= $item['tgl_temuan_order']; ?>"><?= $item['tgl_temuan']; ?></td>
                                         <td><?= $item['status']; ?></td>
                                         <td>
-                                            <a href="<?= base_url('survailen-insidental/detail/' . $item['id']); ?>" class="btn btn-sm btn-light-primary font-weight-bolder">
+                                            <a href="<?= $item['detail_url']; ?>" class="btn btn-sm btn-light-primary font-weight-bolder">
                                                 <i class="la la-eye"></i>Detail
                                             </a>
                                         </td>

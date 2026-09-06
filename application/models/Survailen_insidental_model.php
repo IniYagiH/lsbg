@@ -38,12 +38,12 @@ class Survailen_insidental_model extends CI_Model
         return $this->db->query($sql)->result();
     }
 
-    public function find_by_id($id)
+    public function get_by_nib($nib)
     {
         return $this->db
-            ->where('id', (int) $id)
-            ->limit(1)
+            ->where('nib', $nib)
+            ->order_by('id', 'desc')
             ->get($this->table)
-            ->row();
+            ->result();
     }
 }
