@@ -1575,6 +1575,14 @@ License: You must have a valid license purchased only from themeforest(the above
 																</a>
 															</li>
 														<?php endif; ?>
+														<li class="menu-item" aria-haspopup="true">
+														    <a href="<?= base_url('survailen-insidental'); ?>" class="menu-link">
+														        <span class="svg-icon svg-icon-primary svg-icon-2x menu-icon">
+														            <i class="flaticon2-list-3 text-primary"></i>
+														        </span>
+														        <span class="menu-text">Survailen Insidental</span>
+														    </a>
+														</li>
 														<?php if ($this->session->userdata('id_user') == 'admin_pusat10' or $this->session->userdata('id_user') == 'SBU_LEON' or $this->session->userdata('id_user') == 'SBU_ROLLAND' or $this->session->userdata('id_user') == 'adminx') : ?>
 
 															<li class="menu-item" aria-haspopup="true">
