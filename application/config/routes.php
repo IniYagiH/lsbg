@@ -50,7 +50,6 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 |		my-controller/my-method	-> my_controller/my_method
 */
 $route['survailen-insidental'] = 'survailen_insidental/index';
-$route['survailen-insidental/ajax-list'] = 'survailen_insidental/ajax_list';
 $route['survailen-insidental/detail/(:num)'] = 'survailen_insidental/detail/$1';
 $route['default_controller'] = 'Login';
 $route['404_override'] = '';

@@ -26,7 +26,7 @@
                     <div class="card-title">
                         <h3 class="card-label">Daftar Survailen Insidental
                             <span class="d-block text-muted pt-2 font-size-sm">
-                                Badan usaha yang telah ditetapkan untuk proses survailen insidental.
+                                Satu data terbaru untuk setiap NIB yang akan menjalani survailen insidental.
                             </span>
                         </h3>
                     </div>
@@ -40,15 +40,30 @@
                                     <th>Nama Badan Usaha</th>
                                     <th>NIB</th>
                                     <th>ID Izin</th>
-                                    <th>Subklasifikasi</th>
-                                    <th>Kualifikasi</th>
                                     <th>Jenis Temuan</th>
                                     <th>Tanggal Temuan</th>
                                     <th>Status</th>
                                     <th>Aksi</th>
                                 </tr>
                             </thead>
-                            <tbody></tbody>
+                            <tbody>
+                                <?php foreach ($survailen_list as $index => $item) : ?>
+                                    <tr>
+                                        <td><?= $index + 1; ?></td>
+                                        <td><?= $item['nama_bu']; ?></td>
+                                        <td><?= $item['nib']; ?></td>
+                                        <td><?= $item['id_izin']; ?></td>
+                                        <td><?= $item['jenis_temuan']; ?></td>
+                                        <td data-order="<?= $item['tgl_temuan_order']; ?>"><?= $item['tgl_temuan']; ?></td>
+                                        <td><?= $item['status']; ?></td>
+                                        <td>
+                                            <a href="<?= base_url('survailen-insidental/detail/' . $item['id']); ?>" class="btn btn-sm btn-light-primary font-weight-bolder">
+                                                <i class="la la-eye"></i>Detail
+                                            </a>
+                                        </td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            </tbody>
                         </table>
                     </div>
                 </div>
@@ -60,27 +75,20 @@
 <script>
 window.addEventListener('load', function () {
     $('#survailen_insidental_table').DataTable({
-        processing: true,
-        serverSide: true,
         responsive: false,
         scrollX: true,
         stateSave: false,
         pageLength: 25,
         lengthMenu: [[10, 25, 50, 100], [10, 25, 50, 100]],
-        order: [[7, 'desc']],
-        ajax: {
-            url: '<?= base_url('survailen-insidental/ajax-list'); ?>',
-            type: 'POST'
-        },
+        order: [[5, 'desc']],
         columnDefs: [
-            { targets: [0, 9], orderable: false, searchable: false },
-            { targets: [0, 9], className: 'text-center' },
-            { targets: [7, 8], className: 'text-nowrap' }
+            { targets: [0, 7], orderable: false, searchable: false },
+            { targets: [0, 7], className: 'text-center' },
+            { targets: [5, 6], className: 'text-nowrap' }
         ],
         language: {
             search: 'Cari:',
             lengthMenu: 'Tampilkan _MENU_ data',
-            processing: 'Memuat data...',
             zeroRecords: 'Data survailen insidental tidak ditemukan',
             info: 'Menampilkan _START_ sampai _END_ dari _TOTAL_ data',
             infoEmpty: 'Tidak ada data yang ditampilkan',
