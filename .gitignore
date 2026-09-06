@@ -1,0 +1,40 @@
+# Local Codex progress notes
+/.codex.md
+
+# Local configuration containing credentials or secrets
+/application/config/config.php
+/application/config/database.php
+/application/config/email.php
+/application/config/email_survailen.php
+
+# Runtime data
+/application/cache/*
+!/application/cache/index.html
+/application/logs/*
+!/application/logs/index.html
+/assets/bukti/
+/assets/sertifikat/qrcodex/[0-9]*/
+
+# Dependencies installed by Composer. Keep the custom library that is not in composer.lock.
+/vendor/*
+!/vendor/pdfwatermarker/
+!/vendor/pdfwatermarker/**
+
+# Local experiments and source archives
+/coba/
+*.rar
+*.zip
+
+# Environment and editor files
+.env
+.env.*
+!.env.example
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Local key embedded in the bundled calendar demo
+/assets/js/pages/features/calendar/google.js
+/assets/src/js/pages/features/calendar/google.js
