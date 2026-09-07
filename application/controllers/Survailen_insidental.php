@@ -19,31 +19,54 @@ class Survailen_insidental extends CI_Controller
             return;
         }
 
+        $appointment_map = array();
+        foreach ($this->survailen_insidental->get_active_appointments_grouped() as $appointment) {
+            $appointment_map[$appointment->NIB] = $appointment;
+        }
+
         $list = $this->survailen_insidental->get_all_grouped_by_nib();
         $rows = array();
 
         foreach ($list as $item) {
+            $appointment = isset($appointment_map[$item->nib])
+                ? $appointment_map[$item->nib]
+                : null;
+            $token = encrypt_url($item->nib);
+
             $rows[] = array(
                 'nama_bu' => html_escape($item->nama_bu),
                 'nib' => html_escape($item->nib),
                 'id_izin' => html_escape($item->id_izin),
                 'jenis_temuan' => html_escape($this->format_label($item->jenis_temuan)),
                 'tgl_temuan' => $this->format_date($item->tgl_temuan),
-                'tgl_temuan_order' => empty($item->tgl_temuan) || $item->tgl_temuan === '0000-00-00'
-                    ? ''
-                    : html_escape($item->tgl_temuan),
+                'tgl_temuan_order' => $this->date_order_value($item->tgl_temuan),
                 'status' => $this->status_badge($item->status),
+                'assessor_names' => $appointment
+                    ? html_escape($appointment->assessor_names)
+                    : '<span class="text-muted">Belum ditunjuk</span>',
+                'assessor_1' => $appointment ? html_escape($appointment->assessor_1) : '',
+                'assessor_2' => $appointment ? html_escape($appointment->assessor_2) : '',
+                'assessor_3' => $appointment ? html_escape($appointment->assessor_3) : '',
+                'tgl_pelaksanaan' => $appointment && !empty($appointment->tgl_pelaksanaan)
+                    ? html_escape($appointment->tgl_pelaksanaan)
+                    : date('Y-m-d'),
+                'has_appointment' => $appointment ? '1' : '0',
+                'token' => html_escape($token),
                 'detail_url' => html_escape(
-                    base_url('survailen-insidental/detail/' . encrypt_url($item->nib))
+                    base_url('survailen-insidental/detail/' . $token)
                 ),
             );
         }
 
-        $this->template->load(
-            'menu/menu',
-            'survailen_insidental/index',
-            array('survailen_list' => $rows)
+        $data = array(
+            'survailen_list' => $rows,
+            'assessor_candidates' => $this->survailen_insidental
+                ->get_assessor_candidates(array('3')),
+            'support_candidates' => $this->survailen_insidental
+                ->get_assessor_candidates(array('2', '3')),
         );
+
+        $this->template->load('menu/menu', 'survailen_insidental/index', $data);
     }
 
     public function detail($token = null)
@@ -104,6 +127,8 @@ class Survailen_insidental extends CI_Controller
             'penilaian' => $penilaian,
             'penilaian_action' => base_url('survailen-insidental/simpan-penilaian'),
             'is_insidental' => true,
+            'asesor_insidental' => $this->survailen_insidental
+                ->get_active_appointments($nib),
             'accidental_nib' => html_escape($nib),
             'accidental_nama_bu' => html_escape($latest->nama_bu),
         );
@@ -147,16 +172,120 @@ class Survailen_insidental extends CI_Controller
         );
 
         if ($this->survailen_insidental->save_assessment($nib, $data)) {
-            $this->session->set_flashdata('title', 'Submit Berhasil');
-            $this->session->set_flashdata('text', 'Penilaian survailen insidental berhasil disimpan');
-            $this->session->set_flashdata('class', 'success');
+            $this->set_flash('Submit Berhasil', 'Penilaian survailen insidental berhasil disimpan', 'success');
         } else {
-            $this->session->set_flashdata('title', 'Submit Gagal');
-            $this->session->set_flashdata('text', 'Penilaian survailen insidental gagal disimpan');
-            $this->session->set_flashdata('class', 'error');
+            $this->set_flash('Submit Gagal', 'Penilaian survailen insidental gagal disimpan', 'error');
         }
 
         redirect('survailen-insidental/detail/' . $token, 'refresh');
+    }
+
+    public function simpan_penunjukan()
+    {
+        if (!$this->has_access()) {
+            $this->deny_access();
+            return;
+        }
+
+        $token = trim((string) $this->input->post('token'));
+        $nib = $this->decode_nib($token);
+        if ($nib === false) {
+            show_404();
+            return;
+        }
+
+        $records = $this->survailen_insidental->get_by_nib($nib);
+        if (empty($records)) {
+            show_404();
+            return;
+        }
+
+        $appointments = array(
+            1 => $this->post_value('asesor_1'),
+            2 => $this->post_value('asesor_2'),
+            3 => $this->post_value('asesor_3'),
+        );
+
+        if ($appointments[1] === '') {
+            $this->set_flash('Penunjukan Gagal', 'Asesor 1 wajib dipilih.', 'warning');
+            redirect('survailen-insidental', 'refresh');
+            return;
+        }
+
+        $selected = array_values(array_filter($appointments, 'strlen'));
+        if (count($selected) !== count(array_unique($selected))) {
+            $this->set_flash('Penunjukan Gagal', 'Asesor yang sama tidak dapat dipilih lebih dari satu kali.', 'warning');
+            redirect('survailen-insidental', 'refresh');
+            return;
+        }
+
+        if (!$this->survailen_insidental->is_valid_assessor($appointments[1], array('3'))) {
+            $this->set_flash('Penunjukan Gagal', 'Asesor 1 harus merupakan Asesor LSBU.', 'warning');
+            redirect('survailen-insidental', 'refresh');
+            return;
+        }
+
+        foreach (array(2, 3) as $slot) {
+            if (
+                $appointments[$slot] !== ''
+                && !$this->survailen_insidental->is_valid_assessor(
+                    $appointments[$slot],
+                    array('2', '3')
+                )
+            ) {
+                $this->set_flash(
+                    'Penunjukan Gagal',
+                    'Asesor 2 dan 3 harus merupakan Asesor atau Verifikator LSBU.',
+                    'warning'
+                );
+                redirect('survailen-insidental', 'refresh');
+                return;
+            }
+        }
+
+        $tgl_pelaksanaan = $this->post_date('tgl_pelaksanaan');
+        if ($tgl_pelaksanaan === null) {
+            $tgl_pelaksanaan = date('Y-m-d');
+        }
+
+        $saved = $this->survailen_insidental->replace_appointments(
+            $nib,
+            (int) $records[0]->id,
+            $tgl_pelaksanaan,
+            $this->session->userdata('id_user'),
+            $appointments
+        );
+
+        if ($saved) {
+            $this->set_flash('Penunjukan Berhasil', 'Asesor survailen insidental berhasil ditunjuk.', 'success');
+        } else {
+            $this->set_flash('Penunjukan Gagal', 'Data penunjukan asesor gagal disimpan.', 'error');
+        }
+
+        redirect('survailen-insidental', 'refresh');
+    }
+
+    public function batalkan_penunjukan()
+    {
+        if (!$this->has_access()) {
+            $this->deny_access();
+            return;
+        }
+
+        $token = trim((string) $this->input->post('token'));
+        $nib = $this->decode_nib($token);
+        if ($nib === false) {
+            show_404();
+            return;
+        }
+
+        if ($this->survailen_insidental->cancel_appointments($nib)) {
+            $this->set_flash('Penunjukan Dibatalkan', 'Penunjukan asesor insidental berhasil dibatalkan.', 'success');
+        } else {
+            $this->set_flash('Pembatalan Gagal', 'Penunjukan asesor insidental gagal dibatalkan.', 'error');
+        }
+
+        redirect('survailen-insidental', 'refresh');
     }
 
     private function decode_nib($token)
@@ -203,10 +332,15 @@ class Survailen_insidental extends CI_Controller
 
     private function deny_access()
     {
-        $this->session->set_flashdata('title', 'Warning');
-        $this->session->set_flashdata('text', 'Anda tidak memiliki akses');
-        $this->session->set_flashdata('class', 'warning');
+        $this->set_flash('Warning', 'Anda tidak memiliki akses', 'warning');
         redirect('login', 'refresh');
+    }
+
+    private function set_flash($title, $text, $class)
+    {
+        $this->session->set_flashdata('title', $title);
+        $this->session->set_flashdata('text', $text);
+        $this->session->set_flashdata('class', $class);
     }
 
     private function format_label($value)
@@ -222,6 +356,13 @@ class Survailen_insidental extends CI_Controller
 
         $timestamp = strtotime($value);
         return $timestamp ? date('d-m-Y', $timestamp) : html_escape($value);
+    }
+
+    private function date_order_value($value)
+    {
+        return empty($value) || $value === '0000-00-00'
+            ? ''
+            : html_escape($value);
     }
 
     private function status_badge($status)

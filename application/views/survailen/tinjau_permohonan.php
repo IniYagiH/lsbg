@@ -67,6 +67,26 @@
 				</div>
 
 				<div class="card-body">
+					<?php if (!empty($is_insidental)) : ?>
+						<div class="alert alert-custom alert-light-info fade show mb-8" role="alert">
+							<div class="alert-icon">
+								<i class="flaticon-users-1"></i>
+							</div>
+							<div class="alert-text">
+								<div class="font-weight-bolder mb-2">Asesor Survailen Insidental</div>
+								<?php if (empty($asesor_insidental)) : ?>
+									<span class="text-muted">Belum ada asesor yang ditunjuk.</span>
+								<?php else : ?>
+									<?php foreach ($asesor_insidental as $appointment) : ?>
+										<span class="label label-lg label-light-primary label-inline font-weight-bold mr-2 mb-2">
+											Asesor <?= (int) $appointment['urutan_asesor']; ?>:
+											<?= html_escape(!empty($appointment['Nama']) ? $appointment['Nama'] : $appointment['id_asesor']); ?>
+										</span>
+									<?php endforeach; ?>
+								<?php endif; ?>
+							</div>
+						</div>
+					<?php endif; ?>
 
 					<div class="row">
 						<div class="col-md-6">

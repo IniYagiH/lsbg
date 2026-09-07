@@ -42,6 +42,7 @@
                                     <th>ID Izin</th>
                                     <th>Jenis Temuan</th>
                                     <th>Tanggal Temuan</th>
+                                    <th>Asesor</th>
                                     <th>Status</th>
                                     <th>Aksi</th>
                                 </tr>
@@ -55,11 +56,29 @@
                                         <td><?= $item['id_izin']; ?></td>
                                         <td><?= $item['jenis_temuan']; ?></td>
                                         <td data-order="<?= $item['tgl_temuan_order']; ?>"><?= $item['tgl_temuan']; ?></td>
+                                        <td><?= $item['assessor_names']; ?></td>
                                         <td><?= $item['status']; ?></td>
-                                        <td>
-                                            <a href="<?= $item['detail_url']; ?>" class="btn btn-sm btn-light-primary font-weight-bolder">
+                                        <td class="text-nowrap">
+                                            <a href="<?= $item['detail_url']; ?>" class="btn btn-sm btn-light-primary font-weight-bolder mb-1">
                                                 <i class="la la-eye"></i>Detail
                                             </a>
+                                            <button
+                                                type="button"
+                                                class="btn btn-sm btn-light-dark font-weight-bolder mb-1 btn-penunjukan-insidental"
+                                                data-toggle="modal"
+                                                data-target="#modal_penunjukan_insidental"
+                                                data-token="<?= $item['token']; ?>"
+                                                data-nib="<?= $item['nib']; ?>"
+                                                data-nama="<?= $item['nama_bu']; ?>"
+                                                data-tgl-pelaksanaan="<?= $item['tgl_pelaksanaan']; ?>"
+                                                data-asesor-1="<?= $item['assessor_1']; ?>"
+                                                data-asesor-2="<?= $item['assessor_2']; ?>"
+                                                data-asesor-3="<?= $item['assessor_3']; ?>"
+                                                data-has-appointment="<?= $item['has_appointment']; ?>"
+                                            >
+                                                <i class="la la-user-check"></i>
+                                                <?= $item['has_appointment'] === '1' ? 'Ubah Asesor' : 'Tunjuk Asesor'; ?>
+                                            </button>
                                         </td>
                                     </tr>
                                 <?php endforeach; ?>
@@ -68,6 +87,120 @@
                     </div>
                 </div>
             </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="modal_penunjukan_insidental" tabindex="-1" role="dialog" aria-labelledby="judul_penunjukan_insidental" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-xl" role="document">
+        <div class="modal-content">
+            <?php echo form_open(base_url('survailen-insidental/simpan-penunjukan'), array('id' => 'form_penunjukan_insidental')); ?>
+                <div class="modal-header">
+                    <h5 class="modal-title" id="judul_penunjukan_insidental">Penunjukan Asesor Survailen Insidental</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Tutup">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+
+                <div class="modal-body">
+                    <input type="hidden" name="token" id="penunjukan_token">
+
+                    <div class="form-group row">
+                        <div class="col-lg-4">
+                            <label>Nama Badan Usaha</label>
+                            <input type="text" id="penunjukan_nama_bu" class="form-control" readonly>
+                        </div>
+                        <div class="col-lg-4">
+                            <label>NIB</label>
+                            <input type="text" id="penunjukan_nib" class="form-control" readonly>
+                        </div>
+                        <div class="col-lg-4">
+                            <label>Tanggal Pelaksanaan Survailen</label>
+                            <input type="date" name="tgl_pelaksanaan" id="penunjukan_tgl_pelaksanaan" class="form-control" required>
+                        </div>
+                    </div>
+
+                    <div class="alert alert-custom alert-light-warning fade show" role="alert">
+                        <div class="alert-icon"><i class="flaticon-warning"></i></div>
+                        <div class="alert-text">
+                            Asesor 1 wajib berasal dari Asesor LSBU. Asesor 2 dan 3 dapat berasal dari Asesor atau Verifikator LSBU.
+                        </div>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-vertical-center">
+                            <thead>
+                                <tr>
+                                    <th class="w-150px">Posisi</th>
+                                    <th>Nama Asesor</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td class="font-weight-bold">Asesor 1</td>
+                                    <td>
+                                        <select name="asesor_1" id="penunjukan_asesor_1" class="form-control penunjukan-select" required>
+                                            <option value="">Pilih Asesor LSBU</option>
+                                            <?php foreach ($assessor_candidates as $candidate) : ?>
+                                                <option value="<?= html_escape($candidate['Username']); ?>">
+                                                    <?= html_escape($candidate['Nama']); ?>
+                                                    — <?= html_escape($candidate['nama_propinsi']); ?>
+                                                </option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td class="font-weight-bold">Asesor 2</td>
+                                    <td>
+                                        <select name="asesor_2" id="penunjukan_asesor_2" class="form-control penunjukan-select">
+                                            <option value="">Tidak ditunjuk</option>
+                                            <?php foreach ($support_candidates as $candidate) : ?>
+                                                <option value="<?= html_escape($candidate['Username']); ?>">
+                                                    <?= html_escape($candidate['Nama']); ?>
+                                                    — <?= $candidate['level'] === '3' ? 'Asesor' : 'Verifikator'; ?>
+                                                    — <?= html_escape($candidate['nama_propinsi']); ?>
+                                                </option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td class="font-weight-bold">Asesor 3</td>
+                                    <td>
+                                        <select name="asesor_3" id="penunjukan_asesor_3" class="form-control penunjukan-select">
+                                            <option value="">Tidak ditunjuk</option>
+                                            <?php foreach ($support_candidates as $candidate) : ?>
+                                                <option value="<?= html_escape($candidate['Username']); ?>">
+                                                    <?= html_escape($candidate['Nama']); ?>
+                                                    — <?= $candidate['level'] === '3' ? 'Asesor' : 'Verifikator'; ?>
+                                                    — <?= html_escape($candidate['nama_propinsi']); ?>
+                                                </option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="modal-footer">
+                    <button
+                        type="submit"
+                        id="btn_batalkan_penunjukan"
+                        formaction="<?= base_url('survailen-insidental/batalkan-penunjukan'); ?>"
+                        formnovalidate
+                        class="btn btn-light-danger mr-auto"
+                    >
+                        <i class="la la-times"></i>Batalkan Penunjukan
+                    </button>
+                    <button type="button" class="btn btn-light" data-dismiss="modal">Tutup</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="la la-save"></i>Simpan Penunjukan
+                    </button>
+                </div>
+            <?php echo form_close(); ?>
         </div>
     </div>
 </div>
@@ -82,9 +215,9 @@ window.addEventListener('load', function () {
         lengthMenu: [[10, 25, 50, 100], [10, 25, 50, 100]],
         order: [[5, 'desc']],
         columnDefs: [
-            { targets: [0, 7], orderable: false, searchable: false },
-            { targets: [0, 7], className: 'text-center' },
-            { targets: [5, 6], className: 'text-nowrap' }
+            { targets: [0, 8], orderable: false, searchable: false },
+            { targets: [0, 8], className: 'text-center' },
+            { targets: [5, 7, 8], className: 'text-nowrap' }
         ],
         language: {
             search: 'Cari:',
@@ -99,6 +232,31 @@ window.addEventListener('load', function () {
                 next: 'Berikutnya',
                 previous: 'Sebelumnya'
             }
+        }
+    });
+
+    if ($.fn.select2) {
+        $('.penunjukan-select').select2({
+            width: '100%',
+            dropdownParent: $('#modal_penunjukan_insidental')
+        });
+    }
+
+    $('.btn-penunjukan-insidental').on('click', function () {
+        var button = $(this);
+
+        $('#penunjukan_token').val(button.attr('data-token'));
+        $('#penunjukan_nib').val(button.attr('data-nib'));
+        $('#penunjukan_nama_bu').val(button.attr('data-nama'));
+        $('#penunjukan_tgl_pelaksanaan').val(button.attr('data-tgl-pelaksanaan'));
+        $('#penunjukan_asesor_1').val(button.attr('data-asesor-1')).trigger('change');
+        $('#penunjukan_asesor_2').val(button.attr('data-asesor-2')).trigger('change');
+        $('#penunjukan_asesor_3').val(button.attr('data-asesor-3')).trigger('change');
+
+        if (button.attr('data-has-appointment') === '1') {
+            $('#btn_batalkan_penunjukan').show();
+        } else {
+            $('#btn_batalkan_penunjukan').hide();
         }
     });
 });
