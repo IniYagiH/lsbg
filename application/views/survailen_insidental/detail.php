@@ -11,7 +11,7 @@
                         </h2>
                     </div>
                 </div>
-                <a href="<?= base_url('survailen-insidental'); ?>" class="btn btn-light-primary font-weight-bold">
+                <a href="<?= html_escape($insidental_back_url); ?>" class="btn btn-light-primary font-weight-bold">
                     <i class="la la-arrow-left"></i>Kembali
                 </a>
             </div>

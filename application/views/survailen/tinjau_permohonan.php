@@ -50,7 +50,7 @@
 			<div class="card card-custom gutter-b">
 				<div class="card-header">
 					<div class="card-title">
-						<h3 class="card-label">Tinjauan Permohonan</h3>
+						<h3 class="card-label"><?= !empty($is_insidental) ? 'Tinjauan Permohonan Survailen Insidental' : 'Tinjauan Permohonan'; ?></h3>
 
 
 					</div>
@@ -58,9 +58,15 @@
 
 
 
-						<a href="<?= base_url('survailen/cetak_penilaian_tinjauan/'.$id1) ;?>" target="_blank"
-							class="btn btn-dark font-weight-bolder">
-							<i class="la la-plus"></i>Cetak Penilaian</a>
+						<?php if (!empty($is_insidental)) : ?>
+                            <a href="<?= html_escape($insidental_back_url); ?>" class="btn btn-light-primary font-weight-bold">
+                                <i class="la la-arrow-left"></i>Kembali ke Daftar
+                            </a>
+                        <?php else : ?>
+                        <a href="<?= base_url('survailen/cetak_penilaian_tinjauan/'.$id1) ;?>" target="_blank"
+                            class="btn btn-dark font-weight-bolder">
+                            <i class="la la-plus"></i>Cetak Penilaian</a>
+                        <?php endif; ?>
 
 					</div>
 
@@ -243,7 +249,10 @@
 									<input type="hidden" id="count_nomer" value="0">
 									<div class="col-md-12">
 										<div class="table-responsive">
-											<?php echo form_open_multipart(isset($penilaian_action) ? $penilaian_action : base_url('survailen/insert_penilaian'), 'method="POST"');?>
+											<?php if (!empty($is_insidental)) : ?>
+                                                <?php include APPPATH . 'views/survailen_insidental/penilaian_form.php'; ?>
+                                            <?php else : ?>
+                                            <?php echo form_open_multipart(base_url('survailen/insert_penilaian'), 'method="POST"');?>
 											<table class="table table-lg">
 												<thead>
 													<tr>
@@ -404,6 +413,7 @@
 												Submit Penilaian</button>
 
 											<?php echo form_close() ;?>
+                                            <?php endif; ?>
 										</div>
 									</div>
 								</div>

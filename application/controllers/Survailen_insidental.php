@@ -76,9 +76,44 @@ class Survailen_insidental extends CI_Controller
             return;
         }
 
+        $this->render_detail($token, false);
+    }
+
+    public function list_tinjauan_permohonan_verifikator()
+    {
+        if (!$this->has_verifier_access()) {
+            $this->deny_access();
+            return;
+        }
+
+        $data = array(
+            'survailen_list' => $this->survailen_insidental->get_assigned_requests(
+                $this->session->userdata('id_user')
+            ),
+        );
+        $this->template->load('menu/menu', 'survailen_insidental/list_verifikator', $data);
+    }
+
+    public function tinjauan_permohonan_verifikator($token = null)
+    {
+        if (!$this->has_verifier_access()) {
+            $this->deny_access();
+            return;
+        }
+
+        $this->render_detail($token, true);
+    }
+
+    private function render_detail($token, $is_verifikator)
+    {
         $nib = $this->decode_nib($token);
         if ($nib === false) {
             show_404();
+            return;
+        }
+
+        if ($is_verifikator && !$this->has_active_assignment($nib)) {
+            $this->deny_assignment();
             return;
         }
 
@@ -90,6 +125,7 @@ class Survailen_insidental extends CI_Controller
 
         $latest = $records[0];
         $penilaian = $this->survailen_insidental->get_assessment_by_nib($nib);
+        $assessment_version = $this->survailen_insidental->assessment_version($penilaian);
         if (empty($penilaian)) {
             $penilaian = array(array(
                 'ketidaksesuaian' => $latest->uraian_temuan,
@@ -125,7 +161,13 @@ class Survailen_insidental extends CI_Controller
             'id1' => $token,
             'id2' => encrypt_url((string) $latest->id),
             'penilaian' => $penilaian,
-            'penilaian_action' => base_url('survailen-insidental/simpan-penilaian'),
+            'penilaian_action' => base_url($is_verifikator
+                ? 'survailen-insidental/simpan-penilaian-verifikator'
+                : 'survailen-insidental/simpan-penilaian'),
+            'assessment_version' => $assessment_version,
+            'insidental_back_url' => base_url($is_verifikator
+                ? 'survailen-insidental/tinjauan-permohonan-verifikator'
+                : 'survailen-insidental'),
             'is_insidental' => true,
             'asesor_insidental' => $this->survailen_insidental
                 ->get_active_appointments($nib),
@@ -143,10 +185,35 @@ class Survailen_insidental extends CI_Controller
             return;
         }
 
+        $this->save_penilaian(false);
+    }
+
+    public function simpan_penilaian_verifikator()
+    {
+        if (!$this->has_verifier_access()) {
+            $this->deny_access();
+            return;
+        }
+
+        $this->save_penilaian(true);
+    }
+
+    private function save_penilaian($is_verifikator)
+    {
+        if ($this->input->method() !== 'post') {
+            show_error('Gunakan form penilaian untuk menyimpan data.', 405);
+            return;
+        }
+
         $token = trim((string) $this->input->post('id1'));
         $nib = $this->decode_nib($token);
         if ($nib === false) {
             show_404();
+            return;
+        }
+
+        if ($is_verifikator && !$this->has_active_assignment($nib)) {
+            $this->deny_assignment();
             return;
         }
 
@@ -171,13 +238,28 @@ class Survailen_insidental extends CI_Controller
             'hasil_tindak_lanjut' => $this->post_boolean('hasil_tindak_lanjut'),
         );
 
-        if ($this->survailen_insidental->save_assessment($nib, $data)) {
+        $result = $this->survailen_insidental->save_assessment(
+            $nib,
+            $data,
+            $this->post_value('assessment_version'),
+            $is_verifikator ? $this->session->userdata('id_user') : null
+        );
+        if ($result === 'forbidden') {
+            $this->deny_assignment();
+            return;
+        }
+
+        if ($result === 'conflict') {
+            $this->set_flash('Penilaian Berubah', 'Data sudah diperbarui oleh pengguna lain. Perubahan Anda belum disimpan. Periksa hasil terbaru sebelum mengisi kembali.', 'warning');
+        } elseif ($result === 'saved') {
             $this->set_flash('Submit Berhasil', 'Penilaian survailen insidental berhasil disimpan', 'success');
         } else {
             $this->set_flash('Submit Gagal', 'Penilaian survailen insidental gagal disimpan', 'error');
         }
 
-        redirect('survailen-insidental/detail/' . $token, 'refresh');
+        redirect(($is_verifikator
+            ? 'survailen-insidental/tinjauan-permohonan-verifikator/'
+            : 'survailen-insidental/detail/') . $token, 'refresh');
     }
 
     public function simpan_penunjukan()
@@ -328,6 +410,26 @@ class Survailen_insidental extends CI_Controller
     {
         return $this->ion_auth->ceklogin()
             && ($this->ion_auth->admin_pusat() || $this->ion_auth->pelaksana());
+    }
+
+    private function has_verifier_access()
+    {
+        return $this->ion_auth->ceklogin()
+            && in_array((string) $this->session->userdata('level'), array('2', '3'), true);
+    }
+
+    private function has_active_assignment($nib)
+    {
+        return $this->survailen_insidental->has_active_assignment(
+            $nib,
+            $this->session->userdata('id_user')
+        );
+    }
+
+    private function deny_assignment()
+    {
+        $this->set_flash('Penugasan Tidak Aktif', 'Anda tidak memiliki penugasan aktif untuk permohonan ini.', 'warning');
+        redirect('survailen-insidental/tinjauan-permohonan-verifikator', 'refresh');
     }
 
     private function deny_access()

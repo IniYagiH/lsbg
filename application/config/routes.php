@@ -50,6 +50,9 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 |		my-controller/my-method	-> my_controller/my_method
 */
 $route['survailen-insidental'] = 'survailen_insidental/index';
+$route['survailen-insidental/tinjauan-permohonan-verifikator'] = 'survailen_insidental/list_tinjauan_permohonan_verifikator';
+$route['survailen-insidental/tinjauan-permohonan-verifikator/(:any)'] = 'survailen_insidental/tinjauan_permohonan_verifikator/$1';
+$route['survailen-insidental/simpan-penilaian-verifikator'] = 'survailen_insidental/simpan_penilaian_verifikator';
 $route['survailen-insidental/detail/(:any)'] = 'survailen_insidental/detail/$1';
 $route['survailen-insidental/simpan-penilaian'] = 'survailen_insidental/simpan_penilaian';
 $route['survailen-insidental/simpan-penunjukan'] = 'survailen_insidental/simpan_penunjukan';

@@ -1527,7 +1527,15 @@ License: You must have a valid license purchased only from themeforest(the above
 												</div>
 											</li>
 										<?php endif; ?>
-										<?php if ($this->session->userdata('id_user') == 'admin_pusat10' or $this->session->userdata('id_user') == 'SBU_LEON' or $this->session->userdata('id_user') == 'SBU_ROLLAND' or $this->session->userdata('id_user') == 'adminx' or $this->ion_auth->pelaksana()) : ?>
+										<?php
+                                        $can_manage_survailen_menu = $this->session->userdata('id_user') == 'admin_pusat10'
+                                            || $this->session->userdata('id_user') == 'SBU_LEON'
+                                            || $this->session->userdata('id_user') == 'SBU_ROLLAND'
+                                            || $this->session->userdata('id_user') == 'adminx'
+                                            || $this->ion_auth->pelaksana();
+                                        $can_review_insidental = in_array((string) $this->session->userdata('level'), array('2', '3'), true);
+                                        ?>
+                                        <?php if ($can_manage_survailen_menu || $can_review_insidental) : ?>
 											<li class="menu-item menu-item-submenu menu-item-rel" data-menu-toggle="hover" aria-haspopup="true">
 												<a href="javascript:;" class="menu-link menu-toggle">
 													<span class="menu-text">Survailen</span>
@@ -1536,6 +1544,7 @@ License: You must have a valid license purchased only from themeforest(the above
 												</a>
 												<div class="menu-submenu menu-submenu-classic menu-submenu-left">
 													<ul class="menu-subnav">
+                                                        <?php if ($can_manage_survailen_menu) : ?>
 														<?php if ($this->session->userdata('id_user') == 'admin_pusat10' or $this->session->userdata('id_user') == 'SBU_LEON' or $this->session->userdata('id_user') == 'SBU_ROLLAND' or $this->session->userdata('id_user') == 'adminx') : ?>
 															<!-- <li class="menu-item" aria-haspopup="true">
 																<a href="<?= base_url('survailen/list_permohonan_perbaikan'); ?>" class="menu-link">
@@ -1609,7 +1618,16 @@ License: You must have a valid license purchased only from themeforest(the above
 
 
 
-													</ul>
+													<?php endif; ?>
+                                                        <?php if ($can_review_insidental) : ?>
+                                                            <li class="menu-item" aria-haspopup="true">
+                                                                <a href="<?= base_url('survailen-insidental/tinjauan-permohonan-verifikator'); ?>" class="menu-link">
+                                                                    <span class="menu-icon"><i class="flaticon2-list-3 text-primary"></i></span>
+                                                                    <span class="menu-text">Tinjauan Permohonan Insidental</span>
+                                                                </a>
+                                                            </li>
+                                                        <?php endif; ?>
+                                                    </ul>
 												</div>
 											</li>
 

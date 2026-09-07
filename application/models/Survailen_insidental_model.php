@@ -58,20 +58,102 @@ class Survailen_insidental_model extends CI_Model
             ->result_array();
     }
 
-    public function save_assessment($nib, array $data)
+    public function get_assigned_requests($username)
     {
-        $exists = $this->db
-            ->where('NIB', $nib)
-            ->count_all_results($this->assessment_table) > 0;
+        $sql = "
+            SELECT accidental.nib, accidental.nama_bu, grouped_accidental.id_izin,
+                assigned.urutan_asesor, assigned.tgl_pelaksanaan,
+                assessment.NIB AS assessment_nib,
+                assessment.id_asesor AS penilai_terakhir, assessment.updated_at
+            FROM " . $this->table . " accidental
+            INNER JOIN (
+                SELECT nib, MAX(id) AS latest_id,
+                    GROUP_CONCAT(DISTINCT NULLIF(TRIM(id_izin), '')
+                        ORDER BY id_izin SEPARATOR ', ') AS id_izin
+                FROM " . $this->table . "
+                GROUP BY nib
+            ) grouped_accidental ON grouped_accidental.latest_id = accidental.id
+            INNER JOIN (
+                SELECT NIB, MIN(urutan_asesor) AS urutan_asesor,
+                    MAX(tgl_pelaksanaan) AS tgl_pelaksanaan
+                FROM " . $this->appointment_table . "
+                WHERE id_asesor = ? AND status = 'AKTIF'
+                GROUP BY NIB
+            ) assigned ON assigned.NIB = accidental.nib COLLATE utf8mb4_unicode_ci
+            LEFT JOIN " . $this->assessment_table . " assessment
+                ON assessment.NIB = accidental.nib COLLATE utf8mb4_unicode_ci
+            ORDER BY assigned.tgl_pelaksanaan DESC, accidental.id DESC
+        ";
 
-        if ($exists) {
-            return $this->db
-                ->where('NIB', $nib)
-                ->update($this->assessment_table, $data);
+        return $this->db->query($sql, array($username))->result_array();
+    }
+
+    public function has_active_assignment($nib, $username)
+    {
+        if (trim((string) $username) === '') {
+            return false;
         }
 
-        $data['NIB'] = $nib;
-        return $this->db->insert($this->assessment_table, $data);
+        return $this->db
+            ->where('NIB', $nib)
+            ->where('id_asesor', $username)
+            ->where('status', 'AKTIF')
+            ->count_all_results($this->appointment_table) > 0;
+    }
+
+    public function assessment_version(array $assessment)
+    {
+        // Include values as well as timestamps: two edits can occur in one second.
+        return hash('sha256', serialize($assessment));
+    }
+
+    public function save_assessment($nib, array $data, $expected_version, $assigned_user = null)
+    {
+        $this->db->trans_begin();
+        if (!$this->lock_request($nib)) {
+            $this->db->trans_rollback();
+            return 'error';
+        }
+
+        // Appointment changes acquire the same lock, so revocation cannot race a save.
+        if ($assigned_user !== null && !$this->has_active_assignment($nib, $assigned_user)) {
+            $this->db->trans_rollback();
+            return 'forbidden';
+        }
+
+        $current = $this->get_assessment_by_nib($nib);
+        if (!hash_equals($this->assessment_version($current), (string) $expected_version)) {
+            $this->db->trans_rollback();
+            return 'conflict';
+        }
+
+        if (!empty($current)) {
+            $saved = $this->db
+                ->where('NIB', $nib)
+                ->update($this->assessment_table, $data);
+        } else {
+            $data['NIB'] = $nib;
+            $saved = $this->db->insert($this->assessment_table, $data);
+        }
+
+        if (!$saved || $this->db->trans_status() === false) {
+            $this->db->trans_rollback();
+            return 'error';
+        }
+
+        $this->db->trans_commit();
+        return 'saved';
+    }
+
+    private function lock_request($nib)
+    {
+        // A stable existing row serializes writes even before the first assessment.
+        $query = $this->db->query(
+            'SELECT id FROM ' . $this->table
+            . ' WHERE nib = ? ORDER BY id ASC LIMIT 1 FOR UPDATE',
+            array($nib)
+        );
+        return $query !== false && $query->num_rows() > 0;
     }
 
     public function get_assessor_candidates(array $levels)
@@ -156,6 +238,10 @@ class Survailen_insidental_model extends CI_Model
     ) {
         $now = date('Y-m-d H:i:s');
         $this->db->trans_begin();
+        if (!$this->lock_request($nib)) {
+            $this->db->trans_rollback();
+            return false;
+        }
 
         $this->db
             ->where('NIB', $nib)
@@ -198,12 +284,25 @@ class Survailen_insidental_model extends CI_Model
 
     public function cancel_appointments($nib)
     {
-        return $this->db
+        $this->db->trans_begin();
+        if (!$this->lock_request($nib)) {
+            $this->db->trans_rollback();
+            return false;
+        }
+
+        $saved = $this->db
             ->where('NIB', $nib)
             ->where('status', 'AKTIF')
             ->update($this->appointment_table, array(
                 'status' => 'DIBATALKAN',
                 'updated_at' => date('Y-m-d H:i:s'),
             ));
+        if (!$saved || $this->db->trans_status() === false) {
+            $this->db->trans_rollback();
+            return false;
+        }
+
+        $this->db->trans_commit();
+        return true;
     }
 }
