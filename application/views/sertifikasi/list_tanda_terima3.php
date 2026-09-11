@@ -83,6 +83,7 @@
                 <th>Tgl Permohonan</th>
                 <th>Tgl_Status_31</th>
                 <th>Tgl_Cetak</th>
+                <th data-orderable="false">Durasi Neraca QR</th>
 
                 <th>KBLI</th>
                 <th>File Tinjauan Permohonan</th>

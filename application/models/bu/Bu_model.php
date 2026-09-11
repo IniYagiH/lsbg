@@ -17,6 +17,15 @@ class Bu_model extends CI_Model
 	}
 	private function _get_datatables_query()
 	{
+		// Satu baris daftar per NIB/tanggal; cukup satu registrasi dengan neraca_qr = 1.
+		$this->db->select("MAX(CASE
+			WHEN lsbu_registrasi.neraca_qr = 1
+				AND lsbu_registrasi_history.tgl_permohonan > '0000-00-00'
+				AND lsbu_registrasi_history.status_2 > '0000-00-00'
+				AND DATEDIFF(lsbu_registrasi_history.status_2, lsbu_registrasi_history.tgl_permohonan) >= 0
+			THEN DATEDIFF(lsbu_registrasi_history.status_2, lsbu_registrasi_history.tgl_permohonan) + 1
+			ELSE NULL
+		END) AS durasi_neraca_qr", FALSE);
 		$this->db->select("GROUP_CONCAT(distinct lsbu_registrasi.nomor_kbli, ' ') as concat_kbli,lsbu_registrasi_history.tgl_biaya,lsbu_registrasi_history.no_urut,lsbu_registrasi_history.file_pembayaran,lsbu_registrasi_history.file_perjanjian,SUM(lsbu_biaya.biaya) as biaya_lsbu,lsbu_registrasi_history.status_0,GROUP_CONCAT(distinct lsbu_registrasi.id_sub_klasifikasi, ' ') as concat_sub,lsbu_registrasi.qr,GROUP_CONCAT(distinct lsbu_registrasi.id_klasifikasi, ' ') as concat_klasifikasi,GROUP_CONCAT(distinct lsbu_registrasi.kualifikasi, ' ') as concat_kualifikasi,lsbu_bu.nama,lsbu_registrasi_history.NIB,lsbu_registrasi_history.tgl_permohonan,lsbu_registrasi_history.propinsi,lsbu_registrasi_history.tahun,lsbu_registrasi_history.status_0,lsbu_registrasi_history.status_1,lsbu_registrasi_history.status_2,lsbu_registrasi_history.status_3");
 		$this->db->from('lsbu_registrasi_history');
 		$this->db->join('lsbu_registrasi', 'lsbu_registrasi.NIB=lsbu_registrasi_history.NIB AND lsbu_registrasi.tgl_permohonan=lsbu_registrasi_history.tgl_permohonan', 'left');

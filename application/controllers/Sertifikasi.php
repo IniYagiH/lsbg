@@ -10747,6 +10747,7 @@ $link_qrcode_lai = $row_neraca['link_qrcode_lai'];
       $row[] = $Data_izin->tgl_permohonan;
       $row[] = $Data_izin->tgl_biaya;
       $row[] = $Data_izin->status_2;
+      $row[] = $Data_izin->durasi_neraca_qr !== NULL ? '+' . (int) $Data_izin->durasi_neraca_qr . ' Hari' : '-';
       $row[] = $Data_izin->concat_kbli;
       $row[] = '<a href="' . base_url("sertifikasi/cetak_verifikasi/" . encrypt_url($nib) . '/' . encrypt_url($tgl_permohonan)) . '" target="_blank" class="btn btn-outline-success btn-sm mr-3"><i class="flaticon-doc"></i>Lihat File</a>';
       $row[] = '<a href="' . base_url('get_file/get_bu_49/' . $Data_izin->file_pembayaran) . '" target="_blank" class="btn btn-outline-success btn-sm mr-3"><i class="flaticon-doc"></i>Lihat File</a>';
