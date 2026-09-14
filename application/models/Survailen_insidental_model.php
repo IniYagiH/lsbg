@@ -141,8 +141,7 @@ class Survailen_insidental_model extends CI_Model
             return 'error';
         }
 
-        $this->db->trans_commit();
-        return 'saved';
+        return $this->db->trans_commit() ? 'saved' : 'error';
     }
 
     private function lock_request($nib)
