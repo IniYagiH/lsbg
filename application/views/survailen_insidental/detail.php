@@ -30,5 +30,5 @@
         </div>
     </div>
 <?php else : ?>
-    <?php include APPPATH . 'views/survailen/tinjau_permohonan.php'; ?>
+    <?php include APPPATH . 'views/survailen_insidental/tinjau_permohonan.php'; ?>
 <?php endif; ?>
