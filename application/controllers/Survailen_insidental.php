@@ -252,7 +252,11 @@ class Survailen_insidental extends CI_Controller
         if ($result === 'conflict') {
             $this->set_flash('Penilaian Berubah', 'Data sudah diperbarui oleh pengguna lain. Perubahan Anda belum disimpan. Periksa hasil terbaru sebelum mengisi kembali.', 'warning');
         } elseif ($result === 'saved') {
-            $this->set_flash('Submit Berhasil', 'Penilaian survailen insidental berhasil disimpan', 'success');
+            if ($this->send_assessment_email($nib, $token)) {
+                $this->set_flash('Submit Berhasil', 'Penilaian survailen insidental berhasil disimpan dan email telah dikirim ke pemohon.', 'success');
+            } else {
+                $this->set_flash('Penilaian Tersimpan', 'Penilaian survailen insidental berhasil disimpan, tetapi email gagal dikirim. Periksa alamat email pemohon dan konfigurasi email, lalu submit kembali untuk mengirim ulang.', 'warning');
+            }
         } else {
             $this->set_flash('Submit Gagal', 'Penilaian survailen insidental gagal disimpan', 'error');
         }
@@ -260,6 +264,142 @@ class Survailen_insidental extends CI_Controller
         redirect(($is_verifikator
             ? 'survailen-insidental/tinjauan-permohonan-verifikator/'
             : 'survailen-insidental/detail/') . $token, 'refresh');
+    }
+
+    private function send_assessment_email($nib, $token)
+    {
+        // Called only after save_assessment commits, including unchanged submissions.
+        try {
+            $biodata = $this->Bu_model->biodata_opr($nib);
+            $recipient = isset($biodata[0]['email']) ? trim($biodata[0]['email']) : '';
+            $signature = $this->document_signature($token);
+            if (!filter_var($recipient, FILTER_VALIDATE_EMAIL) || $signature === false) {
+                log_message('error', 'Email penilaian insidental: alamat pemohon atau encryption_key tidak tersedia/valid.');
+                return false;
+            }
+
+            $document_url = base_url('survailen-insidental/dokumen-survailen/' . rawurlencode($token))
+                . '?signature=' . $signature;
+            $this->load->config('email');
+            $this->load->library('email');
+            $this->email->clear(true);
+            $this->email->from('info@lsbugapeknas.com', 'LSBU GAPEKNAS');
+            $this->email->to($recipient);
+            $this->email->cc('mail.lsbugapeknas@gmail.com, ccgapeknas@gmail.com');
+            $this->email->set_mailtype('html');
+            $this->email->set_newline("\r\n");
+            $this->email->set_crlf("\r\n");
+            $this->email->subject('Survailen Insidental LSBU GAPEKNAS');
+            $this->email->message($this->notif_email2($document_url));
+            if ($this->email->send()) {
+                return true;
+            }
+        } catch (Throwable $e) {
+            // Do not expose SMTP credentials or roll back an already saved assessment.
+            log_message('error', 'Email penilaian insidental: terjadi kesalahan saat menyiapkan atau mengirim email.');
+            return false;
+        }
+
+        log_message('error', 'Email penilaian insidental: pengiriman gagal.');
+        return false;
+    }
+    function send_assessment_email2($nib, $token)
+    {
+        // Called only after save_assessment commits, including unchanged submissions.
+        try {
+            $biodata = $this->Bu_model->biodata_opr($nib);
+            $recipient = isset($biodata[0]['email']) ? trim($biodata[0]['email']) : '';
+            $signature = $this->document_signature($token);
+            if (!filter_var($recipient, FILTER_VALIDATE_EMAIL) || $signature === false) {
+                log_message('error', 'Email penilaian insidental: alamat pemohon atau encryption_key tidak tersedia/valid.');
+                return false;
+            }
+
+            $document_url = base_url('survailen-insidental/dokumen-survailen/' . rawurlencode($token))
+                . '?signature=' . $signature;
+            $this->load->config('email');
+            $this->load->library('email');
+            $this->email->clear(true);
+            $this->email->from('info@lsbugapeknas.com', 'LSBU GAPEKNAS');
+            $this->email->to('yagihagiyansyah99@gmail.com');
+            $this->email->cc('mail.lsbugapeknas@gmail.com, ccgapeknas@gmail.com');
+            $this->email->set_mailtype('html');
+            $this->email->set_newline("\r\n");
+            $this->email->set_crlf("\r\n");
+            $this->email->subject('Survailen Insidental LSBU GAPEKNAS');
+            $this->email->message($this->notif_email2($document_url));
+            if ($this->email->send()) {
+                return true;
+            }
+        } catch (Throwable $e) {
+            // Do not expose SMTP credentials or roll back an already saved assessment.
+            log_message('error', 'Email penilaian insidental: terjadi kesalahan saat menyiapkan atau mengirim email.');
+            return false;
+        }
+
+        log_message('error', 'Email penilaian insidental: pengiriman gagal.');
+        return false;
+    }
+
+    private function notif_email2($document_url)
+    {
+        return $this->load->view('survailen_insidental/notif_email2', array(
+            'document_url' => $document_url,
+        ), true);
+    }
+
+    private function document_signature($token)
+    {
+        $key = (string) $this->config->item('encryption_key');
+        if ($key === '') {
+            return false;
+        }
+
+        return hash_hmac('sha256', 'survailen-insidental/dokumen-survailen/' . $token, $key);
+    }
+
+    public function dokumen_survailen($token = null)
+    {
+        // Applicants can open the emailed link without an assessor session.
+        // The signature authorizes this document only; an encrypted NIB alone does not.
+        $signature = $this->input->get('signature');
+        $expected = is_string($token) ? $this->document_signature($token) : false;
+        if ($expected === false || !is_string($signature) || !hash_equals($expected, $signature)) {
+            show_404();
+            return;
+        }
+
+        $nib = $this->decode_nib($token);
+        if ($nib === false) {
+            show_404();
+            return;
+        }
+
+        $records = $this->survailen_insidental->get_by_nib($nib);
+        $penilaian = $this->survailen_insidental->get_assessment_by_nib($nib);
+        if (empty($records) || empty($penilaian)) {
+            show_404();
+            return;
+        }
+
+        $biodata = $this->Bu_model->biodata_opr($nib);
+        $id_izin = array();
+        foreach ($records as $record) {
+            if (trim((string) $record->id_izin) !== '') {
+                $id_izin[] = trim((string) $record->id_izin);
+            }
+        }
+
+        $data = array(
+            'nib' => $nib,
+            'nama_bu' => !empty($biodata[0]['nama']) ? $biodata[0]['nama'] : $records[0]->nama_bu,
+            'id_izin' => implode(', ', array_unique($id_izin)),
+            'penilaian' => $penilaian[0],
+            'asesor' => $this->survailen_insidental->get_active_appointments($nib),
+        );
+        $html = $this->load->view('survailen_insidental/cetak_penilaian', $data, true);
+        $this->load->library('pdfgenerator');
+        $this->pdfgenerator->generate($html, 'survailen_insidental_' . time(), true, 'A4', 'landscape');
     }
 
     public function simpan_penunjukan()
