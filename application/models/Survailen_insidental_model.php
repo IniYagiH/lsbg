@@ -242,6 +242,16 @@ class Survailen_insidental_model extends CI_Model
             return false;
         }
 
+        $this->write_appointments($nib, $accidental_id, $tgl_pelaksanaan, $user_penunjukan, $appointments, $now);
+        if ($this->db->trans_status() === false) {
+            $this->db->trans_rollback();
+            return false;
+        }
+        return $this->db->trans_commit();
+    }
+
+    private function write_appointments($nib, $accidental_id, $tgl_pelaksanaan, $user_penunjukan, array $appointments, $now)
+    {
         $this->db
             ->where('NIB', $nib)
             ->where('status', 'AKTIF')
@@ -272,13 +282,39 @@ class Survailen_insidental_model extends CI_Model
             $this->db->insert_batch($this->appointment_table, $rows);
         }
 
+    }
+
+    public function replace_appointments_bulk(array $nibs, $date, $user, array $appointments)
+    {
+        if (empty($nibs) || count($nibs) !== count(array_unique($nibs))) {
+            return 'error';
+        }
+        // All writers share these locks. Stable order avoids bulk deadlocks.
+        sort($nibs, SORT_STRING);
+        $this->db->trans_begin();
+        foreach ($nibs as $nib) {
+            if (!$this->lock_request($nib)) {
+                $this->db->trans_rollback();
+                return 'error';
+            }
+        }
+        // Read only after all locks are acquired, before the first write.
+        foreach ($nibs as $nib) {
+            if (!empty($this->get_active_appointments($nib))) {
+                $this->db->trans_rollback();
+                return 'conflict';
+            }
+        }
+        $now = date('Y-m-d H:i:s');
+        foreach ($nibs as $nib) {
+            $records = $this->get_by_nib($nib);
+            $this->write_appointments($nib, $records[0]->id, $date, $user, $appointments, $now);
+        }
         if ($this->db->trans_status() === false) {
             $this->db->trans_rollback();
-            return false;
+            return 'error';
         }
-
-        $this->db->trans_commit();
-        return true;
+        return $this->db->trans_commit() ? 'saved' : 'error';
     }
 
     public function cancel_appointments($nib)

@@ -487,6 +487,101 @@ class Survailen_insidental extends CI_Controller
         redirect('survailen-insidental', 'refresh');
     }
 
+    public function simpan_penunjukan_banyak()
+    {
+        if (!$this->has_access()) {
+            $this->deny_access();
+            return;
+        }
+        if ($this->input->method() !== 'post') {
+            show_error('Gunakan form penunjukan untuk menyimpan data.', 405);
+            return;
+        }
+        // JSON avoids max_input_vars truncation when selecting many NIBs.
+        $payload = $this->input->post('tokens');
+        $tokens = is_string($payload) ? json_decode($payload, true) : null;
+        if (!is_array($tokens) || empty($tokens)) {
+            show_error('Pilih minimal satu NIB.', 400);
+            return;
+        }
+        $nibs = array();
+        foreach ($tokens as $token) {
+            $nib = is_string($token) ? $this->decode_nib($token) : false;
+            if ($nib === false || in_array($nib, $nibs, true)) {
+                show_error('Pilihan NIB tidak valid atau berulang.', 400);
+                return;
+            }
+            $nibs[] = $nib;
+        }
+        foreach (array('asesor_1', 'asesor_2', 'asesor_3', 'tgl_pelaksanaan') as $field) {
+            if (is_array($this->input->post($field))) {
+                show_error('Form penunjukan tidak valid.', 400);
+                return;
+            }
+        }
+        $appointments = array(
+            1 => $this->post_value('asesor_1'),
+            2 => $this->post_value('asesor_2'),
+            3 => $this->post_value('asesor_3'),
+        );
+
+        if ($appointments[1] === '') {
+            $this->set_flash('Penunjukan Gagal', 'Asesor 1 wajib dipilih.', 'warning');
+            redirect('survailen-insidental', 'refresh');
+            return;
+        }
+
+        $selected = array_values(array_filter($appointments, 'strlen'));
+        if (count($selected) !== count(array_unique($selected))) {
+            $this->set_flash('Penunjukan Gagal', 'Asesor yang sama tidak dapat dipilih lebih dari satu kali.', 'warning');
+            redirect('survailen-insidental', 'refresh');
+            return;
+        }
+
+        if (!$this->survailen_insidental->is_valid_assessor($appointments[1], array('3'))) {
+            $this->set_flash('Penunjukan Gagal', 'Asesor 1 harus merupakan Asesor LSBU.', 'warning');
+            redirect('survailen-insidental', 'refresh');
+            return;
+        }
+
+        foreach (array(2, 3) as $slot) {
+            if (
+                $appointments[$slot] !== ''
+                && !$this->survailen_insidental->is_valid_assessor(
+                    $appointments[$slot],
+                    array('2', '3')
+                )
+            ) {
+                $this->set_flash(
+                    'Penunjukan Gagal',
+                    'Asesor 2 dan 3 harus merupakan Asesor atau Verifikator LSBU.',
+                    'warning'
+                );
+                redirect('survailen-insidental', 'refresh');
+                return;
+            }
+        }
+
+
+        $date = $this->post_date('tgl_pelaksanaan');
+        if ($date === null) {
+            $this->set_flash('Penunjukan Gagal', 'Tanggal pelaksanaan wajib diisi dengan tanggal yang valid.', 'warning');
+            redirect('survailen-insidental', 'refresh');
+            return;
+        }
+        $result = $this->survailen_insidental->replace_appointments_bulk(
+            $nibs, $date, $this->session->userdata('id_user'), $appointments
+        );
+        if ($result === 'saved') {
+            $this->set_flash('Penunjukan Berhasil', count($nibs) . ' NIB berhasil ditugaskan.', 'success');
+        } elseif ($result === 'conflict') {
+            $this->set_flash('Penunjukan Berubah', 'Ada NIB yang sudah memiliki asesor aktif. Seluruh perubahan belum disimpan. Pilih kembali NIB dari daftar terbaru.', 'warning');
+        } else {
+            $this->set_flash('Penunjukan Gagal', 'Seluruh perubahan dibatalkan. Muat ulang daftar dan coba kembali.', 'error');
+        }
+        redirect('survailen-insidental', 'refresh');
+    }
+
     public function batalkan_penunjukan()
     {
         if (!$this->has_access()) {

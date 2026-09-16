@@ -56,6 +56,7 @@ $route['survailen-insidental/simpan-penilaian-verifikator'] = 'survailen_insiden
 $route['survailen-insidental/detail/(:any)'] = 'survailen_insidental/detail/$1';
 $route['survailen-insidental/simpan-penilaian'] = 'survailen_insidental/simpan_penilaian';
 $route['survailen-insidental/dokumen-survailen/(:any)'] = 'survailen_insidental/dokumen_survailen/$1';
+$route['survailen-insidental/simpan-penunjukan-banyak'] = 'survailen_insidental/simpan_penunjukan_banyak';
 $route['survailen-insidental/simpan-penunjukan'] = 'survailen_insidental/simpan_penunjukan';
 $route['survailen-insidental/batalkan-penunjukan'] = 'survailen_insidental/batalkan_penunjukan';
 $route['default_controller'] = 'Login';
