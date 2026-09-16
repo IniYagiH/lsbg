@@ -32,11 +32,17 @@
                     </div>
                 </div>
                 <div class="card-body">
+                    <div class="d-flex align-items-center flex-wrap mb-4">
+                        <button type="button" id="btn_penunjukan_banyak" class="btn btn-primary mr-3 mb-2" disabled>Tunjuk Asesor Banyak</button>
+                        <span id="jumlah_nib_dipilih" class="mr-3 mb-2" aria-live="polite">0 NIB dipilih</span>
+                        <button type="button" id="hapus_pilihan_nib" class="btn btn-light mb-2" disabled>Hapus pilihan</button>
+                    </div>
+                    <p class="text-muted">Centang NIB yang belum memiliki asesor. Pilihan tetap tersimpan saat mencari atau berpindah halaman. Checkbox header memilih NIB pada halaman ini saja.</p>
                     <div class="table-responsive">
                         <table class="table table-bordered table-hover table-checkable" id="survailen_insidental_table">
                             <thead>
                                 <tr>
-                                    <th>No.</th>
+                                    <th><input type="checkbox" class="pilih-halaman-nib" aria-label="Pilih NIB tanpa asesor pada halaman ini"> No.</th>
                                     <th>Nama Badan Usaha</th>
                                     <th>NIB</th>
                                     <th>ID Izin</th>
@@ -50,7 +56,13 @@
                             <tbody>
                                 <?php foreach ($survailen_list as $index => $item) : ?>
                                     <tr>
-                                        <td><?= $index + 1; ?></td>
+                                        <td class="text-nowrap">
+                                            <input type="checkbox" class="pilih-nib" value="<?= $item['token']; ?>"
+                                                data-nib="<?= $item['nib']; ?>" data-nama="<?= $item['nama_bu']; ?>"
+                                                aria-label="Pilih NIB <?= $item['nib']; ?>"
+                                                <?= $item['has_appointment'] === '1' ? 'disabled title="Sudah memiliki asesor aktif"' : ''; ?>>
+                                            <?= $index + 1; ?>
+                                        </td>
                                         <td><?= $item['nama_bu']; ?></td>
                                         <td><?= $item['nib']; ?></td>
                                         <td><?= $item['id_izin']; ?></td>
@@ -104,6 +116,11 @@
 
                 <div class="modal-body">
                     <input type="hidden" name="token" id="penunjukan_token">
+                    <input type="hidden" name="tokens" id="penunjukan_tokens" disabled>
+                    <div id="ringkasan_penunjukan_massal" style="display:none">
+                        <p>Tanggal dan susunan asesor berikut akan diterapkan ke seluruh NIB di bawah ini.</p>
+                        <ul id="daftar_nib_massal" class="mb-4" style="max-height:220px;overflow-y:auto"></ul>
+                    </div>
 
                     <div class="form-group row">
                         <div class="col-lg-4">
@@ -207,7 +224,7 @@
 
 <script>
 window.addEventListener('load', function () {
-    $('#survailen_insidental_table').DataTable({
+    var table = $('#survailen_insidental_table').DataTable({
         responsive: false,
         scrollX: true,
         stateSave: false,
@@ -235,6 +252,80 @@ window.addEventListener('load', function () {
         }
     });
 
+
+    var selected = Object.create(null);
+    function pageCheckboxes() {
+        return $(table.rows({page: 'current', search: 'applied'}).nodes()).find('.pilih-nib:not(:disabled)');
+    }
+    function syncSelection() {
+        var count = Object.keys(selected).length;
+        $('#jumlah_nib_dipilih').text(count + ' NIB dipilih');
+        $('#btn_penunjukan_banyak').prop('disabled', count === 0);
+        $('#hapus_pilihan_nib').prop('disabled', count === 0);
+        var boxes = pageCheckboxes();
+        boxes.each(function () { this.checked = !!selected[this.value]; });
+        var checked = boxes.filter(':checked').length;
+        $('.pilih-halaman-nib').prop('checked', boxes.length > 0 && checked === boxes.length)
+            .prop('indeterminate', checked > 0 && checked < boxes.length)
+            .prop('disabled', boxes.length === 0);
+    }
+    $('#survailen_insidental_table').on('change', '.pilih-nib', function () {
+        if (this.disabled) return;
+        if (this.checked) {
+            selected[this.value] = {nib: $(this).attr('data-nib'), nama: $(this).attr('data-nama')};
+        } else {
+            delete selected[this.value];
+        }
+        syncSelection();
+    });
+    // DataTables scrollX may clone the header.
+    $('#survailen_insidental_table_wrapper').on('change', '.pilih-halaman-nib', function () {
+        var checked = this.checked;
+        pageCheckboxes().each(function () {
+            if (checked) {
+                selected[this.value] = {nib: $(this).attr('data-nib'), nama: $(this).attr('data-nama')};
+            } else {
+                delete selected[this.value];
+            }
+        });
+        syncSelection();
+    });
+    table.on('draw', syncSelection);
+    $('#hapus_pilihan_nib').on('click', function () {
+        selected = Object.create(null);
+        syncSelection();
+    });
+    $('#btn_penunjukan_banyak').on('click', function () {
+        var tokens = Object.keys(selected);
+        if (!tokens.length) return;
+        $('#form_penunjukan_insidental').attr('action', <?= json_encode(base_url('survailen-insidental/simpan-penunjukan-banyak')); ?>);
+        $('#judul_penunjukan_insidental').text('Tunjuk Asesor untuk ' + tokens.length + ' NIB');
+        $('#penunjukan_token').val('').prop('disabled', true);
+        $('#penunjukan_tokens').val(JSON.stringify(tokens)).prop('disabled', false);
+        $('#penunjukan_nama_bu, #penunjukan_nib').closest('.col-lg-4').hide();
+        $('#daftar_nib_massal').empty();
+        tokens.forEach(function (token) {
+            var item = selected[token];
+            $('<li>').text(item.nib + ' - ' + item.nama).appendTo('#daftar_nib_massal');
+        });
+        $('#ringkasan_penunjukan_massal').show();
+        $('#penunjukan_tgl_pelaksanaan').val(<?= json_encode(date('Y-m-d')); ?>);
+        $('.penunjukan-select').val('').trigger('change');
+        $('#btn_batalkan_penunjukan').hide();
+        $('#modal_penunjukan_insidental').modal('show');
+    });
+    $('#form_penunjukan_insidental').on('submit', function (event) {
+        if ($('#penunjukan_tokens').prop('disabled')) return;
+        var values = $('.penunjukan-select').map(function () { return $(this).val(); }).get().filter(Boolean);
+        if (new Set(values).size !== values.length) {
+            event.preventDefault();
+            alert('Asesor yang sama tidak dapat dipilih lebih dari satu kali.');
+            return;
+        }
+        $(this).find('button[type="submit"]').prop('disabled', true);
+    });
+    syncSelection();
+
     if ($.fn.select2) {
         $('.penunjukan-select').select2({
             width: '100%',
@@ -242,8 +333,14 @@ window.addEventListener('load', function () {
         });
     }
 
-    $('.btn-penunjukan-insidental').on('click', function () {
+    $('#survailen_insidental_table').on('click', '.btn-penunjukan-insidental', function () {
         var button = $(this);
+        $('#form_penunjukan_insidental').attr('action', <?= json_encode(base_url('survailen-insidental/simpan-penunjukan')); ?>);
+        $('#judul_penunjukan_insidental').text('Penunjukan Asesor Survailen Insidental');
+        $('#penunjukan_tokens').prop('disabled', true);
+        $('#penunjukan_token').prop('disabled', false);
+        $('#ringkasan_penunjukan_massal').hide();
+        $('#penunjukan_nama_bu, #penunjukan_nib').closest('.col-lg-4').show();
 
         $('#penunjukan_token').val(button.attr('data-token'));
         $('#penunjukan_nib').val(button.attr('data-nib'));
