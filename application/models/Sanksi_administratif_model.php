@@ -23,6 +23,11 @@ class Sanksi_administratif_model extends CI_Model
         return $this->db->query($sql . ' ORDER BY nama_bu, nib, id_izin, id', $params)->result_array();
     }
 
+    public function find_by_id($id)
+    {
+        return $this->db->query('SELECT * FROM ' . $this->table . ' WHERE id = ?', array($id))->row_array();
+    }
+
     public function last_sync()
     {
         return $this->db->query('SELECT synced_at, row_count FROM ' . $this->sync . ' WHERE id = 1')->row_array();

@@ -119,6 +119,43 @@ class Survailen_insidental extends CI_Controller
         ));
     }
 
+    public function surat_pembekuan($id = null)
+    {
+        if (!$this->has_access()) {
+            $this->deny_access();
+            return;
+        }
+        if ($this->input->method() !== 'get') {
+            show_error('Metode tidak didukung.', 405);
+            return;
+        }
+        if (!is_scalar($id) || !ctype_digit((string) $id) || (int) $id < 1) {
+            show_404();
+            return;
+        }
+        $this->load->model('Sanksi_administratif_model', 'sanksi');
+        if (!$this->sanksi->ready()) {
+            show_error('Tabel sanksi belum tersedia.', 503);
+            return;
+        }
+        $row = $this->sanksi->find_by_id($id);
+        if (!$row) {
+            show_error('Data sanksi tidak ditemukan atau telah diperbarui. Buka kembali daftar sanksi.', 404);
+            return;
+        }
+        $this->load->library('Surat_pembekuan');
+        $values = $this->surat_pembekuan->defaults($row['id']);
+        $html = $this->load->view('survailen_insidental/surat_pembekuan_pdf', array(
+            'row' => $row, 'surat' => $this->surat_pembekuan->formatted($values),
+        ), true);
+        $this->load->library('Survailen_insidental_pdf');
+        $pdf = $this->survailen_insidental_pdf->generate($html, '', false, 'Letter', 'portrait');
+        $this->output->set_content_type('application/pdf')
+            ->set_header('Content-Disposition: inline; filename="rekomendasi_pembekuan_' . (int) $id . '.pdf"')
+            ->set_header('Cache-Control: no-store, private')
+            ->set_output($pdf);
+    }
+
     public function refresh_sanksi_administratif()
     {
         if (!$this->has_access()) {

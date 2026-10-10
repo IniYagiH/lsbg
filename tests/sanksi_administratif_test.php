@@ -9,7 +9,7 @@ function rejected($fn) {
     try { $fn(); } catch (RuntimeException $e) { check(true, 'Rejected invalid input'); return; }
     throw new RuntimeException('Expected rejection');
 }
-$row = array('id_izin' => 'I-202509161200084997036', 'nib' => '00123456789012345678',
+$row = array('id' => 1, 'id_izin' => 'I-202509161200084997036', 'nib' => '00123456789012345678',
     'nama_bu' => 'BU <uji>', 'kode_subklasifikasi' => 'BG003', 'id_kualifikasi' => 'B',
     'keterangan' => 'Komitmen SMAP Belum terpenuhi');
 $second = $row; $second['keterangan'] = '=SUM(1,2)';

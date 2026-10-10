@@ -48,13 +48,14 @@
                 <div class="table-responsive">
                     <table id="sanksi_table" class="table table-bordered table-hover">
                         <thead><tr><th>No.</th><th>ID Izin</th><th>NIB</th><th>Nama Badan Usaha</th>
-                            <th>Subklasifikasi</th><th>Kualifikasi</th><th>Keterangan</th></tr></thead>
+                            <th>Subklasifikasi</th><th>Kualifikasi</th><th>Keterangan</th><th>Aksi</th></tr></thead>
                         <tbody>
                         <?php foreach ($sanksi_rows as $index => $row) : ?>
                             <tr><td><?= $index + 1; ?></td>
                                 <?php foreach (array('id_izin', 'nib', 'nama_bu', 'kode_subklasifikasi', 'id_kualifikasi', 'keterangan') as $key) : ?>
                                     <td><?= html_escape($row[$key]); ?></td>
                                 <?php endforeach; ?>
+                                <td><a class="btn btn-sm btn-light-primary text-nowrap" href="<?= html_escape(base_url('survailen-insidental/sangsi-adminstrastif/surat/' . $row['id'])); ?>">PDF Surat Pembekuan</a></td>
                             </tr>
                         <?php endforeach; ?>
                         </tbody>
@@ -69,7 +70,7 @@ window.addEventListener('load', function () {
     $('#sanksi_table').DataTable({
         responsive: false, scrollX: true, searching: false, stateSave: false,
         pageLength: 25, lengthMenu: [[10, 25, 50, 100], [10, 25, 50, 100]], order: [],
-        columnDefs: [{targets: [0], orderable: false}, {targets: [1, 2, 4, 5], className: 'text-nowrap'}],
+        columnDefs: [{targets: [0, 7], orderable: false}, {targets: [1, 2, 4, 5], className: 'text-nowrap'}],
         language: {
             lengthMenu: 'Tampilkan _MENU_ data', emptyTable: 'Belum ada sanksi sesuai pencarian',
             info: 'Menampilkan _START_ sampai _END_ dari _TOTAL_ sanksi', infoEmpty: 'Tidak ada data',

@@ -65,3 +65,5 @@ $route['survailen-insidental/batalkan-penunjukan'] = 'survailen_insidental/batal
 $route['default_controller'] = 'Login';
 $route['404_override'] = '';
 $route['translate_uri_dashes'] = FALSE;
+
+$route['survailen-insidental/sangsi-adminstrastif/surat/(:num)'] = 'survailen_insidental/surat_pembekuan/$1';
