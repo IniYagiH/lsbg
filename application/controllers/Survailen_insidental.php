@@ -69,6 +69,112 @@ class Survailen_insidental extends CI_Controller
         $this->template->load('menu/menu', 'survailen_insidental/index', $data);
     }
 
+    public function sanksi_administratif()
+    {
+        $this->render_sanksi_administratif(false);
+    }
+
+    public function export_sanksi_administratif()
+    {
+        $this->render_sanksi_administratif(true);
+    }
+
+    private function render_sanksi_administratif($export)
+    {
+        if (!$this->has_access()) {
+            $this->deny_access();
+            return;
+        }
+        $q = $this->input->get('q');
+        if ($q !== null && (!is_string($q) || mb_strlen($q, 'UTF-8') > 200)) {
+            show_error('Pencarian tidak valid (maksimal 200 karakter).', 400);
+            return;
+        }
+        $q = trim((string) $q);
+        $this->load->model('Sanksi_administratif_model', 'sanksi');
+        $ready = $this->sanksi->ready();
+        $rows = $ready ? $this->sanksi->listing($q) : array();
+        $sync = $ready ? $this->sanksi->last_sync() : array();
+        if ($export) {
+            if (!$ready) {
+                show_error('Tabel sanksi belum tersedia. Jalankan file SQL terlebih dahulu.', 503);
+                return;
+            }
+            $this->load->library('Sanksi_administratif_xlsx');
+            $this->output
+                ->set_content_type('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+                ->set_header('Content-Disposition: attachment; filename="sanksi_administratif_' . date('Y-m-d') . '.xlsx"')
+                ->set_header('Cache-Control: no-store, private')
+                ->set_output($this->sanksi_administratif_xlsx->build($rows, $q, $sync ? $sync['synced_at'] : 'Belum pernah'));
+            return;
+        }
+        $nonce = $this->session->userdata('sanksi_refresh_nonce');
+        if (!$nonce) {
+            $nonce = bin2hex(random_bytes(32));
+            $this->session->set_userdata('sanksi_refresh_nonce', $nonce);
+        }
+        $this->template->load('menu/menu', 'survailen_insidental/sanksi_administratif', array(
+            'sanksi_rows' => $rows, 'search' => $q, 'schema_ready' => $ready,
+            'last_sync' => $sync, 'refresh_nonce' => $nonce,
+        ));
+    }
+
+    public function refresh_sanksi_administratif()
+    {
+        if (!$this->has_access()) {
+            $this->sanksi_json(403, 'Anda tidak memiliki akses.');
+            return;
+        }
+        if ($this->input->method() !== 'post') {
+            $this->sanksi_json(405, 'Gunakan tombol Refresh Data.');
+            return;
+        }
+        // Session-bound CSRF protection also works when global CI CSRF is disabled.
+        $nonce = $this->input->post('_sanksi_nonce');
+        $expected = $this->session->userdata('sanksi_refresh_nonce');
+        if (!is_string($nonce) || !is_string($expected) || $expected === '' || !hash_equals($expected, $nonce)) {
+            $this->sanksi_json(403, 'Sesi refresh tidak valid. Muat ulang halaman.');
+            return;
+        }
+        $this->load->model('Sanksi_administratif_model', 'sanksi');
+        if (!$this->sanksi->ready()) {
+            $this->sanksi_json(503, 'Tabel sanksi belum tersedia. Jalankan file SQL terlebih dahulu.');
+            return;
+        }
+        if (!$this->sanksi->acquire_lock()) {
+            $this->sanksi_json(409, 'Refresh sedang berjalan. Tunggu hingga selesai.');
+            return;
+        }
+        $status = 200;
+        try {
+            set_time_limit(120);
+            $record = $this->Bu_model->token_api_siki();
+            $token = isset($record[0]['token']) ? $record[0]['token'] : '';
+            $this->load->library('Siki_sanksi_client');
+            $rows = $this->siki_sanksi_client->fetch_all($token);
+            $this->sanksi->replace_snapshot($rows);
+            $message = 'Refresh berhasil. ' . count($rows) . ' sanksi tersimpan.';
+        } catch (RuntimeException $e) {
+            $status = 502;
+            $message = $e->getMessage();
+        } catch (Throwable $e) {
+            $status = 500;
+            $message = 'Refresh gagal. Data sebelumnya tetap tersedia.';
+        } finally {
+            $this->sanksi->release_lock();
+        }
+        $this->sanksi_json($status, $message);
+    }
+
+    private function sanksi_json($status, $message)
+    {
+        $this->output->set_status_header($status)->set_content_type('application/json')
+            ->set_header('Cache-Control: no-store')
+            ->set_output(json_encode(array('success' => $status === 200, 'message' => $message,
+                'csrf_name' => $this->security->get_csrf_token_name(),
+                'csrf_hash' => $this->security->get_csrf_hash())));
+    }
+
     public function detail($token = null)
     {
         if (!$this->has_access()) {

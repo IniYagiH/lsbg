@@ -49,6 +49,9 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 | Examples:	my-controller/index	-> my_controller/index
 |		my-controller/my-method	-> my_controller/my_method
 */
+$route['survailen-insidental/sangsi-adminstrastif'] = 'survailen_insidental/sanksi_administratif';
+$route['survailen-insidental/sangsi-adminstrastif/refresh'] = 'survailen_insidental/refresh_sanksi_administratif';
+$route['survailen-insidental/sangsi-adminstrastif/export'] = 'survailen_insidental/export_sanksi_administratif';
 $route['survailen-insidental'] = 'survailen_insidental/index';
 $route['survailen-insidental/tinjauan-permohonan-verifikator'] = 'survailen_insidental/list_tinjauan_permohonan_verifikator';
 $route['survailen-insidental/tinjauan-permohonan-verifikator/(:any)'] = 'survailen_insidental/tinjauan_permohonan_verifikator/$1';

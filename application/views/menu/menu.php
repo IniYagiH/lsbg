@@ -1573,6 +1573,12 @@ License: You must have a valid license purchased only from themeforest(the above
 																	<span class="menu-text">Daftar Permohonan Insidental </span>
 																</a>
 															</li>
+															<li class="menu-item" aria-haspopup="true">
+															    <a href="<?= base_url('survailen-insidental/sangsi-adminstrastif'); ?>" class="menu-link">
+															        <i class="menu-icon la la-clipboard-check"></i>
+															        <span class="menu-text">Sanksi Administratif</span>
+															    </a>
+															</li>
 
 														<?php else : ?>
 															<li class="menu-item" aria-haspopup="true">
@@ -1881,7 +1887,7 @@ License: You must have a valid license purchased only from themeforest(the above
 					<div class="container d-flex flex-column flex-md-row align-items-center justify-content-between">
 						<!--begin::Copyright-->
 						<div class="text-dark order-2 order-md-1">
-							<span class="text-muted font-weight-bold mr-2">2021©</span>
+							<span class="text-muted font-weight-bold mr-2">2021Â©</span>
 							<a href="http://keenthemes.com/metronic" target="_blank" class="text-dark-75 text-hover-danger">Keenthemes</a>
 						</div>
 						<!--end::Copyright-->
