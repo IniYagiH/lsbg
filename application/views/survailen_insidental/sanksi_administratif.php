@@ -45,6 +45,8 @@
                     <span><?= count($sanksi_rows); ?> sanksi sesuai pencarian</span>
                 </div>
                 <p class="text-muted">Ekspor mencakup seluruh hasil pencarian yang sudah diterapkan, termasuk halaman tabel lainnya.</p>
+                <p class="text-muted">Pengiriman email uji hanya ke yagihagiyansyah99@gmail.com. Tautan surat berlaku 7 hari.</p>
+                <div id="email_sanksi_message" class="mb-4" role="status" aria-live="polite"></div>
                 <div class="table-responsive">
                     <table id="sanksi_table" class="table table-bordered table-hover">
                         <thead><tr><th>No.</th><th>ID Izin</th><th>NIB</th><th>Nama Badan Usaha</th>
@@ -55,7 +57,9 @@
                                 <?php foreach (array('id_izin', 'nib', 'nama_bu', 'kode_subklasifikasi', 'id_kualifikasi', 'keterangan') as $key) : ?>
                                     <td><?= html_escape($row[$key]); ?></td>
                                 <?php endforeach; ?>
-                                <td><a class="btn btn-sm btn-light-primary text-nowrap" href="<?= html_escape(base_url('survailen-insidental/sangsi-adminstrastif/surat/' . $row['id'])); ?>">PDF Surat Pembekuan</a></td>
+                                <td><a class="btn btn-sm btn-light-primary text-nowrap" href="<?= html_escape(base_url('survailen-insidental/sangsi-adminstrastif/surat/' . $row['id'])); ?>">PDF Surat Pembekuan</a>
+                                    <button type="button" class="btn btn-sm btn-primary text-nowrap email-sanksi-btn mt-1" data-url="<?= html_escape(base_url('survailen-insidental/sangsi-adminstrastif/kirim-email/' . $row['id'])); ?>">Kirim Email</button>
+                                </td>
                             </tr>
                         <?php endforeach; ?>
                         </tbody>
@@ -78,6 +82,37 @@ window.addEventListener('load', function () {
         }
     });
     var busy = false;
+    function updateEmailCsrf(data) {
+        if (!data || !data.csrf_name || !data.csrf_hash) return;
+        $('#refresh_sanksi_form input[type="hidden"]').each(function () {
+            if (this.name === data.csrf_name) this.value = data.csrf_hash;
+        });
+    }
+    $('#sanksi_table').on('click', '.email-sanksi-btn', function () {
+        if (busy) return;
+        busy = true;
+        var button = $(this);
+        button.prop('disabled', true).attr('aria-busy', 'true').text('Mengirim...');
+        $('#refresh_sanksi_btn').prop('disabled', true);
+        $('#email_sanksi_message').removeClass('text-danger text-success').text('Sedang mengirim email...');
+        $.ajax({url: button.attr('data-url'), method: 'POST',
+            data: $('#refresh_sanksi_form').serialize(), dataType: 'json', timeout: 125000})
+            .done(function (data) {
+                updateEmailCsrf(data);
+                $('#email_sanksi_message').addClass(data.success ? 'text-success' : 'text-danger').text(data.message);
+            })
+            .fail(function (xhr) {
+                updateEmailCsrf(xhr.responseJSON);
+                $('#email_sanksi_message').addClass('text-danger').text(
+                    xhr.responseJSON && xhr.responseJSON.message ? xhr.responseJSON.message :
+                    'Hasil pengiriman belum dapat dikonfirmasi. Periksa kotak masuk sebelum mengirim ulang.');
+            })
+            .always(function () {
+                busy = false;
+                button.prop('disabled', false).removeAttr('aria-busy').text('Kirim Email');
+                $('#refresh_sanksi_btn').prop('disabled', false);
+            });
+    });
     $('#refresh_sanksi_form').on('submit', function (event) {
         event.preventDefault();
         if (busy || $('#refresh_sanksi_btn').prop('disabled')) return;

@@ -143,6 +143,12 @@ class Survailen_insidental extends CI_Controller
             show_error('Data sanksi tidak ditemukan atau telah diperbarui. Buka kembali daftar sanksi.', 404);
             return;
         }
+        $this->render_surat_pembekuan($row);
+    }
+
+    private function render_surat_pembekuan(array $row)
+    {
+        $id = $row['id'];
         $this->load->library('Surat_pembekuan');
         $values = $this->surat_pembekuan->defaults($row['id']);
         $html = $this->load->view('survailen_insidental/surat_pembekuan_pdf', array(
@@ -153,7 +159,99 @@ class Survailen_insidental extends CI_Controller
         $this->output->set_content_type('application/pdf')
             ->set_header('Content-Disposition: inline; filename="rekomendasi_pembekuan_' . (int) $id . '.pdf"')
             ->set_header('Cache-Control: no-store, private')
+            ->set_header('Referrer-Policy: no-referrer')
+            ->set_header('X-Robots-Tag: noindex, nofollow, noarchive')
             ->set_output($pdf);
+    }
+
+
+    public function surat_pembekuan_email($token = null)
+    {
+        if ($this->input->method() !== 'get') {
+            show_error('Metode tidak didukung.', 405);
+            return;
+        }
+        $this->load->library('Surat_pembekuan_token');
+        try {
+            $data = $this->surat_pembekuan_token->verify($token, $this->config->item('encryption_key'));
+        } catch (Throwable $e) {
+            $data = false;
+        }
+        if (!$data) {
+            show_error('Tautan surat tidak valid atau telah kedaluwarsa. Silakan meminta email baru kepada LSBU GAPEKNAS.', 403);
+            return;
+        }
+        $this->load->model('Sanksi_administratif_model', 'sanksi');
+        if (!$this->sanksi->ready()) {
+            show_error('Dokumen sementara tidak tersedia.', 503);
+            return;
+        }
+        $row = $this->sanksi->find_by_id($data['id']);
+        if (!$row || !hash_equals($data['version'], $this->surat_pembekuan_token->fingerprint($row))) {
+            show_error('Data surat telah diperbarui. Silakan meminta email baru kepada LSBU GAPEKNAS.', 410);
+            return;
+        }
+        $this->render_surat_pembekuan($row);
+    }
+
+    public function kirim_email_pembekuan($id = null)
+    {
+        if (!$this->has_access()) {
+            $this->sanksi_json(403, 'Anda tidak memiliki akses.');
+            return;
+        }
+        if ($this->input->method() !== 'post') {
+            $this->sanksi_json(405, 'Gunakan tombol Kirim Email.');
+            return;
+        }
+        $nonce = $this->input->post('_sanksi_nonce');
+        $expected = $this->session->userdata('sanksi_refresh_nonce');
+        if (!is_string($nonce) || !is_string($expected) || $expected === '' || !hash_equals($expected, $nonce)) {
+            $this->sanksi_json(403, 'Sesi tidak valid. Muat ulang halaman.');
+            return;
+        }
+        if (!is_scalar($id) || !ctype_digit((string) $id) || (int) $id < 1) {
+            $this->sanksi_json(400, 'Data sanksi tidak valid.');
+            return;
+        }
+        $this->load->model('Sanksi_administratif_model', 'sanksi');
+        if (!$this->sanksi->ready()) {
+            $this->sanksi_json(503, 'Tabel sanksi belum tersedia.');
+            return;
+        }
+        $row = $this->sanksi->find_by_id($id);
+        if (!$row) {
+            $this->sanksi_json(404, 'Data sanksi telah diperbarui. Muat ulang halaman.');
+            return;
+        }
+        try {
+            $this->load->library('Surat_pembekuan_token');
+            $token = $this->surat_pembekuan_token->issue($row, $this->config->item('encryption_key'));
+            $document_url = base_url('survailen-insidental/sangsi-adminstrastif/surat-email/' . $token);
+            $message = $this->load->view('survailen_insidental/email_pembekuan', array(
+                'row' => $row, 'document_url' => $document_url,
+            ), true);
+            $this->load->config('email');
+            $this->load->library('email');
+            $this->email->clear(true);
+            $this->email->from('info@lsbugapeknas.com', 'LSBU GAPEKNAS');
+            // Fixed testing recipient; no posted recipient, CC, or BCC.
+            $this->email->to('yagihagiyansyah99@gmail.com');
+            $this->email->set_mailtype('html');
+            $this->email->set_newline("\r\n");
+            $this->email->set_crlf("\r\n");
+            $this->email->subject('Pemberitahuan Pembekuan SBU - LSBU GAPEKNAS');
+            $this->email->message($message);
+            $sent = $this->email->send();
+        } catch (Throwable $e) {
+            $sent = false;
+        }
+        if (!$sent) {
+            log_message('error', 'Email pembekuan SBU: persiapan atau pengiriman gagal.');
+        }
+        $this->sanksi_json($sent ? 200 : 502, $sent
+            ? 'Email berhasil dikirim ke yagihagiyansyah99@gmail.com. Tautan berlaku 7 hari.'
+            : 'Email gagal dikirim. Periksa konfigurasi email dan kunci aplikasi, lalu coba kembali.');
     }
 
     public function refresh_sanksi_administratif()

@@ -67,3 +67,6 @@ $route['404_override'] = '';
 $route['translate_uri_dashes'] = FALSE;
 
 $route['survailen-insidental/sangsi-adminstrastif/surat/(:num)'] = 'survailen_insidental/surat_pembekuan/$1';
+
+$route['survailen-insidental/sangsi-adminstrastif/kirim-email/(:num)'] = 'survailen_insidental/kirim_email_pembekuan/$1';
+$route['survailen-insidental/sangsi-adminstrastif/surat-email/(:any)'] = 'survailen_insidental/surat_pembekuan_email/$1';
