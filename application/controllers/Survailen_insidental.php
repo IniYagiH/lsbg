@@ -148,8 +148,8 @@ class Survailen_insidental extends CI_Controller
         $html = $this->load->view('survailen_insidental/surat_pembekuan_pdf', array(
             'row' => $row, 'surat' => $this->surat_pembekuan->formatted($values),
         ), true);
-        $this->load->library('Survailen_insidental_pdf');
-        $pdf = $this->survailen_insidental_pdf->generate($html, '', false, 'Letter', 'portrait');
+        $this->load->library('pdfgenerator');
+        $pdf = $this->pdfgenerator->generate($html, '', false, 'Letter', 'portrait');
         $this->output->set_content_type('application/pdf')
             ->set_header('Content-Disposition: inline; filename="rekomendasi_pembekuan_' . (int) $id . '.pdf"')
             ->set_header('Cache-Control: no-store, private')

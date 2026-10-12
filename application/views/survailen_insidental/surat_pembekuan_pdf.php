@@ -1,10 +1,23 @@
+<?php
+// Use the same letterhead assets as survailen/surat_tugas, embedded locally.
+$kop_image = function ($filename) {
+    $path = FCPATH . 'assets/media/logos/' . $filename;
+    return is_readable($path) ? 'data:image/png;base64,' . base64_encode(file_get_contents($path)) : '';
+};
+$logo_gapeknas = $kop_image('Logo_gapeknas.png');
+$logo_kan = $kop_image('Logo_kan.png');
+?>
 <!DOCTYPE html>
 <html lang="id"><head><meta charset="utf-8">
 <style>
 @page { margin: 20mm 25.4mm 17.5mm; }
 body { font-family: Arial, sans-serif; font-size: 10pt; line-height: 1.18; color: #000; }
-.kop { text-align: center; border-bottom: 2px solid #000; padding-bottom: 8px; margin-bottom: 12px; }
-.kop strong { font-size: 14pt; }
+.kop { width: 100%; border-collapse: collapse; border-bottom: 2px solid #000; margin-bottom: 12px; }
+.kop td { vertical-align: middle; text-align: center; padding: 0 4px 8px; }
+.kop .logo-cell { width: 75px; }
+.kop img { width: 75px; height: auto; }
+.kop .kop-text { font-size: 8pt; line-height: 1.25; }
+.kop strong { font-size: 10pt; }
 h1 { font-size: 12pt; text-align: center; margin: 0 0 14px; }
 p { margin: 0 0 8px; text-align: justify; }
 .meta { width: 100%; margin-bottom: 12px; border-collapse: collapse; }
@@ -13,9 +26,22 @@ p { margin: 0 0 8px; text-align: justify; }
 .ttd { text-align: center; width: 65%; margin-left: 35%; page-break-inside: avoid; }
 .tembusan { margin-top: 10px; font-size: 9pt; }
 </style></head><body>
-<div class="kop"><strong>LSBU GAPEKNAS INFRASTRUKTUR</strong>
-<?php if ($surat['alamat_pengirim'] !== '') : ?><br><?= html_escape($surat['alamat_pengirim']); ?><?php endif; ?>
-</div>
+<table class="kop">
+    <tr>
+        <?php if ($logo_gapeknas !== '') : ?>
+        <td class="logo-cell"><img src="<?= $logo_gapeknas; ?>" alt="GAPEKNAS"></td>
+        <?php endif; ?>
+        <td class="kop-text">
+            <strong>PT LSBU GAPEKNAS INFRASTRUKTUR</strong><br>
+            Ruko Graha Mas Pemuda Blok AD No. 21 Jl. Pemuda, Rawamangun, Jakarta Timur<br>
+            Telp: (021) 4711 796, Fax: (021) 4711 860.<br>
+            Email pt.lsbugapeknas21@gmail.com
+        </td>
+        <?php if ($logo_kan !== '') : ?>
+        <td class="logo-cell"><img src="<?= $logo_kan; ?>" alt="KAN"></td>
+        <?php endif; ?>
+    </tr>
+</table>
 <h1>SURAT REKOMENDASI PEMBEKUAN SBU KE LPJK</h1>
 <p style="text-align:right"><?= html_escape($surat['kota_surat']); ?>, <?= html_escape($surat['tanggal_surat']); ?></p>
 <table class="meta">

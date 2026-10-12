@@ -19,7 +19,7 @@ function letter_fixture() {
         'id_izin' => 'I-202509161200084997036', 'kode_subklasifikasi' => 'BG003',
         'id_kualifikasi' => 'B', 'keterangan' => 'Komitmen SMAP Belum terpenuhi');
     $c = sanksi_fixture($row); $c->sanksi = new LetterModel(); $c->sanksi->record = $row;
-    $c->surat_pembekuan = new Surat_pembekuan(); $c->survailen_insidental_pdf = new LetterPdf();
+    $c->surat_pembekuan = new Surat_pembekuan(); $c->pdfgenerator = new LetterPdf();
     $c->input->verb = 'get';
     return $c;
 }
@@ -40,7 +40,7 @@ $c->input->query = array('nomor_surat' => 'INJECTED', 'penandatangan' => 'INJECT
 $c->surat_pembekuan('48');
 check($c->output->type === 'application/pdf' && $c->output->body === '%PDF-test', 'GET directly returns PDF');
 check($c->template->data === null, 'No input form');
-$html = $c->survailen_insidental_pdf->html;
+$html = $c->pdfgenerator->html;
 check(strpos($html, 'INJECTED') === false, 'Caller cannot override generated fields');
 check(strpos($html, 'PT CONTOH KONSTRUKSI') !== false && strpos($html, '048/REK-PB/') !== false, 'Selected BU and automatic number');
 check(strpos($html, '...') === false, 'No dot placeholders');
@@ -51,13 +51,14 @@ expect_status(function () use ($c) { $c->surat_pembekuan('48'); }, 404);
 $c = letter_fixture(); $c->sanksi->available = false;
 expect_status(function () use ($c) { $c->surat_pembekuan('48'); }, 503);
 $c = letter_fixture(); $c->ion_auth->admin = false; $c->surat_pembekuan('48');
-check($c->survailen_insidental_pdf->html === null, 'Unauthorized generation rejected');
+check($c->pdfgenerator->html === null, 'Unauthorized generation rejected');
 $c = letter_fixture(); $c->sanksi->record['nama_bu'] = '<script>alert(1)</script>';
 $c->surat_pembekuan('48');
-check(strpos($c->survailen_insidental_pdf->html, '<script>') === false, 'Escape API data');
+check(strpos($c->pdfgenerator->html, '<script>') === false, 'Escape API data');
 if (in_array('--render-letter', $argv, true)) {
-    require FCPATH . 'application/libraries/Survailen_insidental_pdf.php';
-    $pdf = (new Survailen_insidental_pdf())->generate($html, '', false, 'Letter', 'portrait');
+    require_once FCPATH . 'vendor/autoload.php';
+    require FCPATH . 'application/libraries/Pdfgenerator.php';
+    $pdf = (new Pdfgenerator())->generate($html, '', false, 'Letter', 'portrait');
     check(substr($pdf, 0, 5) === '%PDF-', 'Actual PDF render');
     file_put_contents(FCPATH . 'application/cache/surat_pembekuan_test.pdf', $pdf);
     echo 'PDF rendered: ' . strlen($pdf) . " bytes.\n";
