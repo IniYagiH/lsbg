@@ -66,7 +66,7 @@ class Surat_pembekuan_model extends CI_Model
             $sequence = (int) $result['last_number'] + 1;
             $this->load->library('Surat_pembekuan');
             $values = $this->surat_pembekuan->defaults($sequence, $now);
-            $values['nomor_sp2'] = $sp2['nomor_sp2'];
+            $values['nomor_sp2'] = '';
             $values['tanggal_sp2'] = $sp2['tanggal_sp2'];
             // Store only document fields, not transient snapshot IDs or sync timestamps.
             $snapshot = array_intersect_key($row, array_flip(array('nib', 'id_izin', 'nama_bu',

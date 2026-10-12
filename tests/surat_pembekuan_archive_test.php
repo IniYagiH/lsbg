@@ -64,7 +64,7 @@ $c = email_letter_fixture(); $row = $c->sanksi->record;
 $sp2 = array('nomor_sp2' => 'REAL/SP2/2026', 'tanggal_sp2' => '2026-01-01');
 $a = $m->issue($row, $sp2, '0', 'admin-test');
 check((int) $a['urutan'] === 1 && (int) $a['revisi'] === 1, 'First annual number');
-check(json_decode($a['surat_json'], true)['nomor_sp2'] === 'REAL/SP2/2026', 'Actual SP II persisted');
+check(json_decode($a['surat_json'], true)['nomor_sp2'] === '', 'SP II number stays blank even when supplied');
 check(!isset(json_decode($a['snapshot_json'], true)['id']), 'Snapshot ID excluded');
 $row['id'] = 9999; $row['nama_bu'] = 'New API name';
 $again = $m->latest($row['nib'], $row['id_izin']);
@@ -125,7 +125,7 @@ $c->input->data = array('_sanksi_nonce' => 'nonce', 'nomor_sp2' => 'SP2/VALID', 
     'expected_letter' => (string) $b['id'], 'snapshot_version' => $c->surat_pembekuan_token->fingerprint($c->sanksi->record));
 $c->terbitkan_surat_pembekuan('48');
 check((int) $m->latest($row['nib'], $row['id_izin'])['revisi'] === 3, 'POST publishes new permanent revision');
-foreach (array('nomor_sp2' => '', 'tanggal_sp2' => '2026-02-30', 'expected_letter' => '-1', '_sanksi_nonce' => 'bad', 'snapshot_version' => 'stale') as $field => $value) {
+foreach (array('tanggal_sp2' => '2026-02-30', 'expected_letter' => '-1', '_sanksi_nonce' => 'bad', 'snapshot_version' => 'stale') as $field => $value) {
     $old = $c->input->data[$field]; $c->input->data[$field] = $value;
     expect_status(function () use ($c) { $c->terbitkan_surat_pembekuan('48'); },
         $field === '_sanksi_nonce' ? 403 : ($field === 'snapshot_version' ? 409 : 400));

@@ -178,17 +178,14 @@ class Survailen_insidental extends CI_Controller
         if (!is_string($nonce) || !is_string($expected_nonce) || $expected_nonce === ''
             || !hash_equals($expected_nonce, $nonce)) { show_error('Sesi tidak valid.', 403); return; }
         if (!is_scalar($id) || !ctype_digit((string) $id) || (int) $id < 1) { show_404(); return; }
-        $number = $this->input->post('nomor_sp2');
         $date = $this->input->post('tanggal_sp2');
         $expected = $this->input->post('expected_letter');
         $version = $this->input->post('snapshot_version');
         $parsed = is_string($date) ? DateTimeImmutable::createFromFormat('!Y-m-d', $date) : false;
         $today = (new DateTimeImmutable('now', new DateTimeZone('Asia/Jakarta')))->format('Y-m-d');
-        if (!is_string($number) || trim($number) === '' || mb_strlen($number) > 100
-            || preg_match('/[\x00-\x1f]|\.{3}/', $number)
-            || !$parsed || $parsed->format('Y-m-d') !== $date || $date > $today
+        if (!$parsed || $parsed->format('Y-m-d') !== $date || $date > $today
             || !is_string($expected) || !ctype_digit($expected) || !is_string($version)) {
-            show_error('Nomor/tanggal SP II atau versi surat tidak valid.', 400); return;
+            show_error('Tanggal SP II atau versi surat tidak valid.', 400); return;
         }
         $this->load->model('Sanksi_administratif_model', 'sanksi');
         $this->load->model('Surat_pembekuan_model', 'surat_arsip');
@@ -201,7 +198,7 @@ class Survailen_insidental extends CI_Controller
             show_error('Data telah berubah. Buka kembali form surat.', 409); return;
         }
         try {
-            $letter = $this->surat_arsip->issue($row, array('nomor_sp2' => trim($number),
+            $letter = $this->surat_arsip->issue($row, array('nomor_sp2' => '',
                 'tanggal_sp2' => $date), $expected, $this->session->userdata('id_user'));
         } catch (Throwable $e) {
             show_error('Surat belum diterbitkan atau telah diterbitkan pengguna lain. Muat ulang daftar.', 409); return;
@@ -214,6 +211,7 @@ class Survailen_insidental extends CI_Controller
         $id = $letter['id'];
         $row = json_decode($letter['snapshot_json'], true);
         $values = json_decode($letter['surat_json'], true);
+        $values['nomor_sp2'] = '';
         $this->load->library('Surat_pembekuan');
         $html = $this->load->view('survailen_insidental/surat_pembekuan_pdf', array(
             'row' => $row, 'surat' => $this->surat_pembekuan->formatted($values),

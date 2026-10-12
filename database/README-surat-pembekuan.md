@@ -5,9 +5,9 @@ Jalankan manual database/schema/20261012_create_surat_pembekuan.sql di database 
 Kode tidak menjalankan migrasi. Tabel snapshot SIKI tetap dipakai sebagai sumber daftar, bukan arsip surat.
 
 ## Alur
-- Surat Pembekuan membuka PDF arsip terbaru berdasarkan NIB + ID izin. Jika belum ada, muncul form nomor/tanggal SP II yang sebenarnya.
+- Surat Pembekuan membuka PDF arsip terbaru berdasarkan NIB + ID izin. Jika belum ada, muncul form tanggal SP II.
 - POST Terbitkan Surat menyimpan snapshot identitas dan isian surat, tanggal Asia/Jakarta, serta nomor urut tahunan mulai 001.
-- Nomor berbentuk 001/REK-PB/LSBU-GI/X/2026. Nomor SP II berasal dari isian, bukan urutan rekomendasi.
+- Nomor berbentuk 001/REK-PB/LSBU-GI/X/2026. Nomor SP II dikosongkan; hanya tanggal SP II yang diisi.
 - Nomor/revisi dialokasikan dalam transaksi InnoDB dengan GET_LOCK; indeks unik melindungi nomor, tahun/urutan, dan pasangan NIB/izin/revisi.
 - Form menyertakan versi snapshot dan ID surat terbaru. Submit form lama/duplikat ditolak.
 - Cetak ulang dan kirim ulang memakai surat yang sama. Terbitkan Surat Baru membuat revisi dan nomor baru secara eksplisit; arsip lama tidak ditimpa.
