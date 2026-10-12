@@ -70,3 +70,5 @@ $route['survailen-insidental/sangsi-adminstrastif/surat/(:num)'] = 'survailen_in
 
 $route['survailen-insidental/sangsi-adminstrastif/kirim-email/(:num)'] = 'survailen_insidental/kirim_email_pembekuan/$1';
 $route['survailen-insidental/sangsi-adminstrastif/surat-email/(:any)'] = 'survailen_insidental/surat_pembekuan_email/$1';
+
+$route['survailen-insidental/sangsi-adminstrastif/terbitkan-surat/(:num)'] = 'survailen_insidental/terbitkan_surat_pembekuan/$1';

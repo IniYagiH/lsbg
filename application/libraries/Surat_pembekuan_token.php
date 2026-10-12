@@ -16,7 +16,7 @@ class Surat_pembekuan_token
         if (!is_string($secret) || $secret === '') {
             throw new RuntimeException('Kunci tautan surat belum tersedia.');
         }
-        return hash_hmac('sha256', 'surat-pembekuan-email-v1', $secret, true);
+        return hash_hmac('sha256', 'surat-pembekuan-email-archive-v2', $secret, true);
     }
 
     public function issue(array $row, $secret, $now = null)
@@ -27,7 +27,7 @@ class Surat_pembekuan_token
             'version' => $this->fingerprint($row), 'expires' => $now + self::TTL));
         $tag = '';
         $ciphertext = openssl_encrypt($payload, 'aes-256-gcm', $this->key($secret),
-            OPENSSL_RAW_DATA, $iv, $tag, 'surat-pembekuan-v1', 16);
+            OPENSSL_RAW_DATA, $iv, $tag, 'surat-pembekuan-archive-v2', 16);
         if ($ciphertext === false) {
             throw new RuntimeException('Tidak dapat membuat tautan surat.');
         }
@@ -43,7 +43,7 @@ class Surat_pembekuan_token
         $raw = base64_decode(strtr($token, '-_', '+/'), true);
         if ($raw === false || strlen($raw) <= 28) return false;
         $plain = openssl_decrypt(substr($raw, 28), 'aes-256-gcm', $this->key($secret),
-            OPENSSL_RAW_DATA, substr($raw, 0, 12), substr($raw, 12, 16), 'surat-pembekuan-v1');
+            OPENSSL_RAW_DATA, substr($raw, 0, 12), substr($raw, 12, 16), 'surat-pembekuan-archive-v2');
         if ($plain === false) return false;
         $data = json_decode($plain, true);
         if (!is_array($data) || !isset($data['id'], $data['version'], $data['expires'])

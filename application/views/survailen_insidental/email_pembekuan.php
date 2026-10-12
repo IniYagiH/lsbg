@@ -14,7 +14,7 @@
     </table>
     <p>Surat rekomendasi pembekuan SBU ke LPJK dapat dibuka, diunduh, dan dicetak melalui tombol berikut:</p>
     <p><a href="<?= html_escape($document_url); ?>" style="display:inline-block;background:#174d80;color:#fff;padding:12px 20px;text-decoration:none">Lihat / Cetak Surat Pembekuan</a></p>
-    <p>Tautan berlaku selama 7 hari sejak email dikirim. Jika data sanksi diperbarui,
+    <p>Tautan berlaku selama 7 hari sejak email dikirim. Setelah tautan kedaluwarsa,
         silakan meminta tautan baru kepada LSBU GAPEKNAS. Mohon simpan tautan ini dan jangan membagikannya kepada pihak lain.</p>
     <p>Hormat kami,<br>LSBU GAPEKNAS</p>
 </div></body></html>

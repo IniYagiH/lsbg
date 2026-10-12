@@ -46,19 +46,45 @@
                 </div>
                 <p class="text-muted">Ekspor mencakup seluruh hasil pencarian yang sudah diterapkan, termasuk halaman tabel lainnya.</p>
                 <p class="text-muted">Pengiriman email uji hanya ke yagihagiyansyah99@gmail.com. Tautan surat berlaku 7 hari.</p>
+                <?php if (empty($archive_ready)) : ?>
+                <div class="alert alert-warning">Status surat belum tersedia. Jalankan SQL <code>20261012_create_surat_pembekuan.sql</code> untuk mengaktifkan penerbitan dan riwayat email.</div>
+                <?php endif; ?>
                 <div id="email_sanksi_message" class="mb-4" role="status" aria-live="polite"></div>
                 <div class="table-responsive">
                     <table id="sanksi_table" class="table table-bordered table-hover">
                         <thead><tr><th>No.</th><th>ID Izin</th><th>NIB</th><th>Nama Badan Usaha</th>
-                            <th>Subklasifikasi</th><th>Kualifikasi</th><th>Keterangan</th><th>Aksi</th></tr></thead>
+                            <th>Subklasifikasi</th><th>Kualifikasi</th><th>Keterangan</th><th>Status Surat / Email</th><th>Aksi</th></tr></thead>
                         <tbody>
                         <?php foreach ($sanksi_rows as $index => $row) : ?>
+                            <?php
+                            $identity = hash('sha256', json_encode(array((string) $row['nib'], (string) $row['id_izin'])));
+                            $state = isset($status_map[$identity]) ? $status_map[$identity] : null;
+                            ?>
                             <tr><td><?= $index + 1; ?></td>
                                 <?php foreach (array('id_izin', 'nib', 'nama_bu', 'kode_subklasifikasi', 'id_kualifikasi', 'keterangan') as $key) : ?>
                                     <td><?= html_escape($row[$key]); ?></td>
                                 <?php endforeach; ?>
-                                <td><a class="btn btn-sm btn-light-primary text-nowrap" href="<?= html_escape(base_url('survailen-insidental/sangsi-adminstrastif/surat/' . $row['id'])); ?>">PDF Surat Pembekuan</a>
-                                    <button type="button" class="btn btn-sm btn-primary text-nowrap email-sanksi-btn mt-1" data-url="<?= html_escape(base_url('survailen-insidental/sangsi-adminstrastif/kirim-email/' . $row['id'])); ?>">Kirim Email</button>
+                                <td>
+                                    <?php if (empty($archive_ready)) : ?>Status belum tersedia
+                                    <?php else : ?>
+                                        <?php if ($state) : ?><div><?= html_escape($state['letter']['nomor_surat']); ?></div><?php endif; ?>
+                                        <?php if ($state && $state['success']) : ?>
+                                            <span class="badge badge-success"><?= $state['success']['is_test'] ? 'Terkirim ke email uji' : 'Sudah dikirim'; ?></span>
+                                            <div><?= html_escape($state['success']['penerima']); ?><br><?= html_escape($state['success']['finished_at']); ?></div>
+                                            <?php if ((string) $state['success']['surat_id'] !== (string) $state['letter']['id']) : ?>
+                                                <small>Keberhasilan pada surat sebelumnya; surat terbaru belum berhasil dikirim.</small>
+                                            <?php endif; ?>
+                                        <?php else : ?><span class="badge badge-secondary">Belum dikirim</span><?php endif; ?>
+                                        <?php if ($state && $state['last'] && $state['last']['status'] !== 'SENT') : ?>
+                                            <div class="text-warning"><?= $state['last']['status'] === 'FAILED' ? 'Percobaan terakhir gagal' : 'Pengiriman sedang diproses / belum terkonfirmasi'; ?></div>
+                                        <?php endif; ?>
+                                    <?php endif; ?>
+                                </td>
+                                <td><a class="btn btn-sm btn-light-primary text-nowrap" href="<?= html_escape(base_url('survailen-insidental/sangsi-adminstrastif/surat/' . $row['id'])); ?>">Surat Pembekuan</a>
+                                    <button type="button" class="btn btn-sm btn-primary text-nowrap email-sanksi-btn mt-1" <?= empty($archive_ready) || !$state ? 'disabled' : ''; ?> data-url="<?= html_escape(base_url('survailen-insidental/sangsi-adminstrastif/kirim-email/' . $row['id'])); ?>">Kirim Email</button>
+                                    <?php if (!empty($archive_ready) && $state) : ?>
+                                    <a class="btn btn-sm btn-light-warning mt-1" href="<?= html_escape(base_url('survailen-insidental/sangsi-adminstrastif/surat/' . $row['id']) . '?baru=1'); ?>">Terbitkan Surat Baru</a>
+                                    <?php endif; ?>
                                 </td>
                             </tr>
                         <?php endforeach; ?>
@@ -74,7 +100,7 @@ window.addEventListener('load', function () {
     $('#sanksi_table').DataTable({
         responsive: false, scrollX: true, searching: false, stateSave: false,
         pageLength: 25, lengthMenu: [[10, 25, 50, 100], [10, 25, 50, 100]], order: [],
-        columnDefs: [{targets: [0, 7], orderable: false}, {targets: [1, 2, 4, 5], className: 'text-nowrap'}],
+        columnDefs: [{targets: [0, 7, 8], orderable: false}, {targets: [1, 2, 4, 5], className: 'text-nowrap'}],
         language: {
             lengthMenu: 'Tampilkan _MENU_ data', emptyTable: 'Belum ada sanksi sesuai pencarian',
             info: 'Menampilkan _START_ sampai _END_ dari _TOTAL_ sanksi', infoEmpty: 'Tidak ada data',
@@ -100,6 +126,7 @@ window.addEventListener('load', function () {
             .done(function (data) {
                 updateEmailCsrf(data);
                 $('#email_sanksi_message').addClass(data.success ? 'text-success' : 'text-danger').text(data.message);
+                if (data.success) window.location.reload();
             })
             .fail(function (xhr) {
                 updateEmailCsrf(xhr.responseJSON);

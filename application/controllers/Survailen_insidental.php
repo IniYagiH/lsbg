@@ -113,9 +113,13 @@ class Survailen_insidental extends CI_Controller
             $nonce = bin2hex(random_bytes(32));
             $this->session->set_userdata('sanksi_refresh_nonce', $nonce);
         }
+        $this->load->model('Surat_pembekuan_model', 'surat_arsip');
+        $archive_ready = $this->surat_arsip->ready();
+        $status_map = $archive_ready ? $this->surat_arsip->status_map() : array();
         $this->template->load('menu/menu', 'survailen_insidental/sanksi_administratif', array(
             'sanksi_rows' => $rows, 'search' => $q, 'schema_ready' => $ready,
             'last_sync' => $sync, 'refresh_nonce' => $nonce,
+            'archive_ready' => $archive_ready, 'status_map' => $status_map,
         ));
     }
 
@@ -143,14 +147,74 @@ class Survailen_insidental extends CI_Controller
             show_error('Data sanksi tidak ditemukan atau telah diperbarui. Buka kembali daftar sanksi.', 404);
             return;
         }
-        $this->render_surat_pembekuan($row);
+        $this->load->model('Surat_pembekuan_model', 'surat_arsip');
+        if (!$this->surat_arsip->ready()) {
+            show_error('Jalankan SQL 20261012_create_surat_pembekuan.sql terlebih dahulu.', 503);
+            return;
+        }
+        $letter = $this->surat_arsip->latest($row['nib'], $row['id_izin']);
+        if (!$letter || $this->input->get('baru') === '1') {
+            $nonce = $this->session->userdata('sanksi_refresh_nonce');
+            if (!$nonce) {
+                $nonce = bin2hex(random_bytes(32));
+                $this->session->set_userdata('sanksi_refresh_nonce', $nonce);
+            }
+            $this->load->library('Surat_pembekuan_token');
+            $this->template->load('menu/menu', 'survailen_insidental/terbitkan_surat', array(
+                'row' => $row, 'latest' => $letter, 'nonce' => $nonce,
+                'version' => $this->surat_pembekuan_token->fingerprint($row),
+            ));
+            return;
+        }
+        $this->render_surat_pembekuan($letter);
     }
 
-    private function render_surat_pembekuan(array $row)
+    public function terbitkan_surat_pembekuan($id = null)
     {
-        $id = $row['id'];
+        if (!$this->has_access()) { $this->deny_access(); return; }
+        if ($this->input->method() !== 'post') { show_error('Gunakan form penerbitan.', 405); return; }
+        $nonce = $this->input->post('_sanksi_nonce');
+        $expected_nonce = $this->session->userdata('sanksi_refresh_nonce');
+        if (!is_string($nonce) || !is_string($expected_nonce) || $expected_nonce === ''
+            || !hash_equals($expected_nonce, $nonce)) { show_error('Sesi tidak valid.', 403); return; }
+        if (!is_scalar($id) || !ctype_digit((string) $id) || (int) $id < 1) { show_404(); return; }
+        $number = $this->input->post('nomor_sp2');
+        $date = $this->input->post('tanggal_sp2');
+        $expected = $this->input->post('expected_letter');
+        $version = $this->input->post('snapshot_version');
+        $parsed = is_string($date) ? DateTimeImmutable::createFromFormat('!Y-m-d', $date) : false;
+        $today = (new DateTimeImmutable('now', new DateTimeZone('Asia/Jakarta')))->format('Y-m-d');
+        if (!is_string($number) || trim($number) === '' || mb_strlen($number) > 100
+            || preg_match('/[\x00-\x1f]|\.{3}/', $number)
+            || !$parsed || $parsed->format('Y-m-d') !== $date || $date > $today
+            || !is_string($expected) || !ctype_digit($expected) || !is_string($version)) {
+            show_error('Nomor/tanggal SP II atau versi surat tidak valid.', 400); return;
+        }
+        $this->load->model('Sanksi_administratif_model', 'sanksi');
+        $this->load->model('Surat_pembekuan_model', 'surat_arsip');
+        if (!$this->sanksi->ready() || !$this->surat_arsip->ready()) {
+            show_error('Tabel belum tersedia. Jalankan SQL surat pembekuan.', 503); return;
+        }
+        $row = $this->sanksi->find_by_id($id);
+        $this->load->library('Surat_pembekuan_token');
+        if (!$row || !hash_equals($version, $this->surat_pembekuan_token->fingerprint($row))) {
+            show_error('Data telah berubah. Buka kembali form surat.', 409); return;
+        }
+        try {
+            $letter = $this->surat_arsip->issue($row, array('nomor_sp2' => trim($number),
+                'tanggal_sp2' => $date), $expected, $this->session->userdata('id_user'));
+        } catch (Throwable $e) {
+            show_error('Surat belum diterbitkan atau telah diterbitkan pengguna lain. Muat ulang daftar.', 409); return;
+        }
+        redirect('survailen-insidental/sangsi-adminstrastif', 'refresh');
+    }
+
+    private function render_surat_pembekuan(array $letter)
+    {
+        $id = $letter['id'];
+        $row = json_decode($letter['snapshot_json'], true);
+        $values = json_decode($letter['surat_json'], true);
         $this->load->library('Surat_pembekuan');
-        $values = $this->surat_pembekuan->defaults($row['id']);
         $html = $this->load->view('survailen_insidental/surat_pembekuan_pdf', array(
             'row' => $row, 'surat' => $this->surat_pembekuan->formatted($values),
         ), true);
@@ -181,18 +245,19 @@ class Survailen_insidental extends CI_Controller
             show_error('Tautan surat tidak valid atau telah kedaluwarsa. Silakan meminta email baru kepada LSBU GAPEKNAS.', 403);
             return;
         }
-        $this->load->model('Sanksi_administratif_model', 'sanksi');
-        if (!$this->sanksi->ready()) {
+        $this->load->model('Surat_pembekuan_model', 'surat_arsip');
+        if (!$this->surat_arsip->ready()) {
             show_error('Dokumen sementara tidak tersedia.', 503);
             return;
         }
-        $row = $this->sanksi->find_by_id($data['id']);
-        if (!$row || !hash_equals($data['version'], $this->surat_pembekuan_token->fingerprint($row))) {
-            show_error('Data surat telah diperbarui. Silakan meminta email baru kepada LSBU GAPEKNAS.', 410);
+        $letter = $this->surat_arsip->find($data['id']);
+        if (!$letter || !hash_equals($data['version'], $this->surat_pembekuan_token->fingerprint($letter))) {
+            show_error('Surat tidak tersedia. Silakan meminta email baru kepada LSBU GAPEKNAS.', 410);
             return;
         }
-        $this->render_surat_pembekuan($row);
+        $this->render_surat_pembekuan($letter);
     }
+
 
     public function kirim_email_pembekuan($id = null)
     {
@@ -224,12 +289,21 @@ class Survailen_insidental extends CI_Controller
             $this->sanksi_json(404, 'Data sanksi telah diperbarui. Muat ulang halaman.');
             return;
         }
+        $this->load->model('Surat_pembekuan_model', 'surat_arsip');
+        if (!$this->surat_arsip->ready()) {
+            $this->sanksi_json(503, 'Jalankan SQL 20261012_create_surat_pembekuan.sql terlebih dahulu.'); return;
+        }
+        $letter = $this->surat_arsip->latest($row['nib'], $row['id_izin']);
+        if (!$letter) {
+            $this->sanksi_json(409, 'Terbitkan surat terlebih dahulu melalui tombol Surat Pembekuan.'); return;
+        }
+        $attempt = null;
         try {
             $this->load->library('Surat_pembekuan_token');
-            $token = $this->surat_pembekuan_token->issue($row, $this->config->item('encryption_key'));
+            $token = $this->surat_pembekuan_token->issue($letter, $this->config->item('encryption_key'));
             $document_url = base_url('survailen-insidental/sangsi-adminstrastif/surat-email/' . $token);
             $message = $this->load->view('survailen_insidental/email_pembekuan', array(
-                'row' => $row, 'document_url' => $document_url,
+                'row' => json_decode($letter['snapshot_json'], true), 'document_url' => $document_url,
             ), true);
             $this->load->config('email');
             $this->load->library('email');
@@ -242,9 +316,22 @@ class Survailen_insidental extends CI_Controller
             $this->email->set_crlf("\r\n");
             $this->email->subject('Pemberitahuan Pembekuan SBU - LSBU GAPEKNAS');
             $this->email->message($message);
+            $attempt = $this->surat_arsip->begin_email($letter['id'], 'yagihagiyansyah99@gmail.com',
+                $this->session->userdata('id_user'));
             $sent = $this->email->send();
         } catch (Throwable $e) {
             $sent = false;
+        }
+        if ($attempt !== null) {
+            try {
+                $recorded = $this->surat_arsip->finish_email($attempt, $sent);
+            } catch (Throwable $e) {
+                $recorded = false;
+            }
+            if (!$recorded) {
+                $this->sanksi_json(502, 'Hasil pengiriman belum tercatat. Periksa kotak masuk sebelum mengirim ulang.');
+                return;
+            }
         }
         if (!$sent) {
             log_message('error', 'Email pembekuan SBU: persiapan atau pengiriman gagal.');

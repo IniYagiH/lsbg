@@ -41,7 +41,7 @@ $c->email->values['bcc'] = array('old@example.test');
 $c->kirim_email_pembekuan('48');
 check($c->output->status === 200 && $c->email->calls === 1, 'Successful send');
 check($c->email->values['to'] === array('yagihagiyansyah99@gmail.com'), 'Fixed test recipient');
-check(!isset($c->email->values['cc'], $c->email->values['bcc']), 'No inherited CC or BCC');
+check(!isset($c->email->values['cc']) && !isset($c->email->values['bcc']), 'No inherited CC or BCC');
 $html = $c->email->values['message'][0];
 check(strpos($html, 'PT CONTOH KONSTRUKSI') !== false && strpos($html, 'Cetak Surat') !== false, 'BU notification and print button');
 preg_match('~surat-email/([A-Za-z0-9_-]+)~', $html, $match);
@@ -51,10 +51,11 @@ $c->surat_pembekuan_email($match[1]);
 check($c->output->body === '%PDF-test', 'Email link renders PDF without login');
 foreach (array('nama_bu', 'nib', 'id_izin', 'kode_subklasifikasi', 'synced_at') as $field) {
     $c = email_letter_fixture(); $c->input->verb = 'get';
-    $token = $lib->issue($c->sanksi->record, $c->config->key);
+    $token = $lib->issue($c->surat_arsip->letter, $c->config->key);
     $c->sanksi->record[$field] = 'changed';
-    expect_status(function () use ($c, $token) { $c->surat_pembekuan_email($token); }, 410);
-    check($c->pdfgenerator->html === null, 'Changed snapshot never renders');
+    $c->sanksi->available = false;
+    $c->surat_pembekuan_email($token);
+    check($c->output->body === '%PDF-test', 'Refresh does not invalidate archived letter');
 }
 foreach (array('auth' => 403, 'login' => 403, 'method' => 405, 'csrf' => 403,
     'id' => 400, 'schema' => 503, 'missing' => 404, 'key' => 502) as $case => $status) {

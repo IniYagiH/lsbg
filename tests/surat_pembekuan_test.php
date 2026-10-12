@@ -21,6 +21,10 @@ function letter_fixture() {
     $c = sanksi_fixture($row); $c->sanksi = new LetterModel(); $c->sanksi->record = $row;
     $c->surat_pembekuan = new Surat_pembekuan(); $c->pdfgenerator = new LetterPdf();
     $c->input->verb = 'get';
+    $c->surat_arsip->letter = array('id' => 7, 'nib' => $row['nib'], 'id_izin' => $row['id_izin'],
+        'nomor_surat' => '048/REK-PB/LSBU-GI/X/2026', 'revisi' => 1,
+        'snapshot_json' => json_encode($row),
+        'surat_json' => json_encode($c->surat_pembekuan->defaults(48)));
     return $c;
 }
 $library = new Surat_pembekuan();
@@ -53,6 +57,7 @@ expect_status(function () use ($c) { $c->surat_pembekuan('48'); }, 503);
 $c = letter_fixture(); $c->ion_auth->admin = false; $c->surat_pembekuan('48');
 check($c->pdfgenerator->html === null, 'Unauthorized generation rejected');
 $c = letter_fixture(); $c->sanksi->record['nama_bu'] = '<script>alert(1)</script>';
+$c->surat_arsip->letter['snapshot_json'] = json_encode($c->sanksi->record);
 $c->surat_pembekuan('48');
 check(strpos($c->pdfgenerator->html, '<script>') === false, 'Escape API data');
 if (in_array('--render-letter', $argv, true)) {

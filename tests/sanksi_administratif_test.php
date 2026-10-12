@@ -125,8 +125,29 @@ class SanksiTemplate {
     public $data;
     function load($layout, $view, $data) { $this->data = $data; }
 }
+class ArchiveFake {
+    public $available = true;
+    public $letter = null;
+    public $attempts = array();
+    public $failBegin = false;
+    public $failFinish = false;
+    function ready() { return $this->available; }
+    function status_map() { return array(); }
+    function latest($nib, $izin) { return $this->letter; }
+    function find($id) { return $this->letter && (string) $this->letter['id'] === (string) $id ? $this->letter : null; }
+    function begin_email($id, $recipient, $user) {
+        if ($this->failBegin) throw new RuntimeException('DB failure');
+        $this->attempts[] = array('surat_id' => $id, 'penerima' => $recipient, 'status' => 'PENDING');
+        return count($this->attempts);
+    }
+    function finish_email($id, $sent) {
+        if ($this->failFinish) return false;
+        $this->attempts[$id - 1]['status'] = $sent ? 'SENT' : 'FAILED';
+        return true;
+    }
+}
 function sanksi_fixture($row) {
-    $c = fixture(); $c->load = new SanksiLoader(); $c->session = new SanksiSession();
+    $c = fixture(); $c->surat_arsip = new ArchiveFake(); $c->load = new SanksiLoader(); $c->session = new SanksiSession();
     $c->session->data['sanksi_refresh_nonce'] = 'nonce';
     $c->input->data['_sanksi_nonce'] = 'nonce';
     $c->security = new SanksiSecurity(); $c->output = new SanksiOutput();
@@ -176,7 +197,7 @@ try {
     check($xp->evaluate('string(//s:c[@r="C7"]/s:is/s:t)') === $row['nib'], 'Long NIB preserved as text');
     check($xp->query('//s:f')->length === 0 && $xp->evaluate('string(//s:c[@r="G8"]/s:is/s:t)') === '=SUM(1,2)', 'Formula-like sanction stays text');
 } finally { $zip->close(); unlink($path); }
-function form_open($action, $attrs) { return '<form>'; }
+function form_open($action, $attrs = array()) { return '<form>'; }
 function form_close() { return '</form>'; }
 extract($c->template->data);
 ob_start(); include FCPATH . 'application/views/survailen_insidental/sanksi_administratif.php'; $html = ob_get_clean();
