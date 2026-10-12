@@ -65,6 +65,7 @@ $sp2 = array('nomor_sp2' => 'REAL/SP2/2026', 'tanggal_sp2' => '2026-01-01');
 $a = $m->issue($row, $sp2, '0', 'admin-test');
 check((int) $a['urutan'] === 1 && (int) $a['revisi'] === 1, 'First annual number');
 check(json_decode($a['surat_json'], true)['nomor_sp2'] === '', 'SP II number stays blank even when supplied');
+check(json_decode($a['surat_json'], true)['tanggal_sp2'] === '', 'SP II date stays blank');
 check(!isset(json_decode($a['snapshot_json'], true)['id']), 'Snapshot ID excluded');
 $row['id'] = 9999; $row['nama_bu'] = 'New API name';
 $again = $m->latest($row['nib'], $row['id_izin']);
@@ -116,16 +117,16 @@ foreach (array('no_letter', 'schema', 'begin', 'finish') as $case) {
 $c = email_letter_fixture(); $c->input->verb = 'get'; $c->surat_arsip->letter = null;
 $c->surat_pembekuan_token = new Surat_pembekuan_token();
 $c->surat_pembekuan('48');
-check($c->template->data['latest'] === null && $c->pdfgenerator->html === null, 'First GET shows form without allocating number');
+check($c->template->data === null && $c->pdfgenerator->html === null, 'GET without letter returns to one-click list');
 $c = email_letter_fixture(); $c->input->verb = 'get'; $c->input->query['baru'] = '1';
 $c->surat_pembekuan('48');
-check($c->template->data['latest']['id'] == 7, 'Explicit new letter form');
+check($c->output->body === '%PDF-test', 'GET cannot issue a new revision');
 $c = email_letter_fixture(); $c->surat_arsip = $m;
-$c->input->data = array('_sanksi_nonce' => 'nonce', 'nomor_sp2' => 'SP2/VALID', 'tanggal_sp2' => '2026-01-01',
+$c->input->data = array('_sanksi_nonce' => 'nonce',
     'expected_letter' => (string) $b['id'], 'snapshot_version' => $c->surat_pembekuan_token->fingerprint($c->sanksi->record));
 $c->terbitkan_surat_pembekuan('48');
 check((int) $m->latest($row['nib'], $row['id_izin'])['revisi'] === 3, 'POST publishes new permanent revision');
-foreach (array('tanggal_sp2' => '2026-02-30', 'expected_letter' => '-1', '_sanksi_nonce' => 'bad', 'snapshot_version' => 'stale') as $field => $value) {
+foreach (array('expected_letter' => '-1', '_sanksi_nonce' => 'bad', 'snapshot_version' => 'stale') as $field => $value) {
     $old = $c->input->data[$field]; $c->input->data[$field] = $value;
     expect_status(function () use ($c) { $c->terbitkan_surat_pembekuan('48'); },
         $field === '_sanksi_nonce' ? 403 : ($field === 'snapshot_version' ? 409 : 400));

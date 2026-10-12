@@ -153,17 +153,8 @@ class Survailen_insidental extends CI_Controller
             return;
         }
         $letter = $this->surat_arsip->latest($row['nib'], $row['id_izin']);
-        if (!$letter || $this->input->get('baru') === '1') {
-            $nonce = $this->session->userdata('sanksi_refresh_nonce');
-            if (!$nonce) {
-                $nonce = bin2hex(random_bytes(32));
-                $this->session->set_userdata('sanksi_refresh_nonce', $nonce);
-            }
-            $this->load->library('Surat_pembekuan_token');
-            $this->template->load('menu/menu', 'survailen_insidental/terbitkan_surat', array(
-                'row' => $row, 'latest' => $letter, 'nonce' => $nonce,
-                'version' => $this->surat_pembekuan_token->fingerprint($row),
-            ));
+        if (!$letter) {
+            redirect('survailen-insidental/sangsi-adminstrastif', 'refresh');
             return;
         }
         $this->render_surat_pembekuan($letter);
@@ -172,20 +163,16 @@ class Survailen_insidental extends CI_Controller
     public function terbitkan_surat_pembekuan($id = null)
     {
         if (!$this->has_access()) { $this->deny_access(); return; }
-        if ($this->input->method() !== 'post') { show_error('Gunakan form penerbitan.', 405); return; }
+        if ($this->input->method() !== 'post') { show_error('Gunakan tombol penerbitan.', 405); return; }
         $nonce = $this->input->post('_sanksi_nonce');
         $expected_nonce = $this->session->userdata('sanksi_refresh_nonce');
         if (!is_string($nonce) || !is_string($expected_nonce) || $expected_nonce === ''
             || !hash_equals($expected_nonce, $nonce)) { show_error('Sesi tidak valid.', 403); return; }
         if (!is_scalar($id) || !ctype_digit((string) $id) || (int) $id < 1) { show_404(); return; }
-        $date = $this->input->post('tanggal_sp2');
         $expected = $this->input->post('expected_letter');
         $version = $this->input->post('snapshot_version');
-        $parsed = is_string($date) ? DateTimeImmutable::createFromFormat('!Y-m-d', $date) : false;
-        $today = (new DateTimeImmutable('now', new DateTimeZone('Asia/Jakarta')))->format('Y-m-d');
-        if (!$parsed || $parsed->format('Y-m-d') !== $date || $date > $today
-            || !is_string($expected) || !ctype_digit($expected) || !is_string($version)) {
-            show_error('Tanggal SP II atau versi surat tidak valid.', 400); return;
+        if (!is_string($expected) || !ctype_digit($expected) || !is_string($version)) {
+            show_error('Versi surat tidak valid.', 400); return;
         }
         $this->load->model('Sanksi_administratif_model', 'sanksi');
         $this->load->model('Surat_pembekuan_model', 'surat_arsip');
@@ -195,15 +182,15 @@ class Survailen_insidental extends CI_Controller
         $row = $this->sanksi->find_by_id($id);
         $this->load->library('Surat_pembekuan_token');
         if (!$row || !hash_equals($version, $this->surat_pembekuan_token->fingerprint($row))) {
-            show_error('Data telah berubah. Buka kembali form surat.', 409); return;
+            show_error('Data telah berubah. Muat ulang daftar.', 409); return;
         }
         try {
             $letter = $this->surat_arsip->issue($row, array('nomor_sp2' => '',
-                'tanggal_sp2' => $date), $expected, $this->session->userdata('id_user'));
+                'tanggal_sp2' => ''), $expected, $this->session->userdata('id_user'));
         } catch (Throwable $e) {
             show_error('Surat belum diterbitkan atau telah diterbitkan pengguna lain. Muat ulang daftar.', 409); return;
         }
-        redirect('survailen-insidental/sangsi-adminstrastif', 'refresh');
+        redirect('survailen-insidental/sangsi-adminstrastif/surat/' . (int) $id, 'location', 303);
     }
 
     private function render_surat_pembekuan(array $letter)
@@ -212,6 +199,7 @@ class Survailen_insidental extends CI_Controller
         $row = json_decode($letter['snapshot_json'], true);
         $values = json_decode($letter['surat_json'], true);
         $values['nomor_sp2'] = '';
+        $values['tanggal_sp2'] = '';
         $this->load->library('Surat_pembekuan');
         $html = $this->load->view('survailen_insidental/surat_pembekuan_pdf', array(
             'row' => $row, 'surat' => $this->surat_pembekuan->formatted($values),

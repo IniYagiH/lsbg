@@ -26,6 +26,7 @@ class Surat_pembekuan
         $months = array(1 => 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
             'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember');
         foreach (array('tanggal_surat', 'tanggal_sp2') as $key) {
+            if ($values[$key] === '') continue;
             $date = DateTime::createFromFormat('!Y-m-d', $values[$key]);
             $values[$key] = $date->format('j') . ' ' . $months[(int) $date->format('n')] . ' ' . $date->format('Y');
         }

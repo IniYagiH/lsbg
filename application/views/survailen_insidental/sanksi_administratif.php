@@ -80,11 +80,12 @@
                                         <?php endif; ?>
                                     <?php endif; ?>
                                 </td>
-                                <td><a class="btn btn-sm btn-light-primary text-nowrap" href="<?= html_escape(base_url('survailen-insidental/sangsi-adminstrastif/surat/' . $row['id'])); ?>">Surat Pembekuan</a>
+                                <td><?php if ($state) : ?><a class="btn btn-sm btn-light-primary text-nowrap" href="<?= html_escape(base_url('survailen-insidental/sangsi-adminstrastif/surat/' . $row['id'])); ?>">Surat Pembekuan</a><?php endif; ?>
                                     <button type="button" class="btn btn-sm btn-primary text-nowrap email-sanksi-btn mt-1" <?= empty($archive_ready) || !$state ? 'disabled' : ''; ?> data-url="<?= html_escape(base_url('survailen-insidental/sangsi-adminstrastif/kirim-email/' . $row['id'])); ?>">Kirim Email</button>
-                                    <?php if (!empty($archive_ready) && $state) : ?>
-                                    <a class="btn btn-sm btn-light-warning mt-1" href="<?= html_escape(base_url('survailen-insidental/sangsi-adminstrastif/surat/' . $row['id']) . '?baru=1'); ?>">Terbitkan Surat Baru</a>
-                                    <?php endif; ?>
+                                    <?php if (!empty($archive_ready)) {
+                                        include __DIR__ . '/terbitkan_surat.php';
+                                    } ?>
+
                                 </td>
                             </tr>
                         <?php endforeach; ?>

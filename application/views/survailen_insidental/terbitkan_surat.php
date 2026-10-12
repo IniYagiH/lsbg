@@ -1,15 +1,12 @@
-<div class="container py-5">
-<h2><?= $latest ? 'Terbitkan Surat Baru' : 'Terbitkan Surat Pembekuan'; ?></h2>
-<p><?= html_escape($row['nama_bu']); ?> ? NIB <?= html_escape($row['nib']); ?> / ID izin <?= html_escape($row['id_izin']); ?></p>
-<?php if ($latest) : ?><div class="alert alert-warning">Surat <?= html_escape($latest['nomor_surat']); ?> tetap tersimpan.
-Penerbitan ini membuat nomor dan tanggal baru. Untuk cetak atau kirim ulang, gunakan surat yang sudah ada.</div><?php endif; ?>
-<p>Nomor dan tanggal surat rekomendasi dialokasikan saat diterbitkan. Masukkan tanggal SP II.</p>
-<?= form_open(base_url('survailen-insidental/sangsi-adminstrastif/terbitkan-surat/' . $row['id'])); ?>
-<input type="hidden" name="_sanksi_nonce" value="<?= html_escape($nonce); ?>">
-<input type="hidden" name="expected_letter" value="<?= $latest ? (int) $latest['id'] : 0; ?>">
+<?php
+// One-click POST issuance; no user-entered fields.
+$version_row = $row;
+ksort($version_row);
+$version = hash('sha256', json_encode(array_map('strval', $version_row)));
+?>
+<?= form_open(base_url('survailen-insidental/sangsi-adminstrastif/terbitkan-surat/' . $row['id']), array('class' => 'd-inline')); ?>
+<input type="hidden" name="_sanksi_nonce" value="<?= html_escape($refresh_nonce); ?>">
+<input type="hidden" name="expected_letter" value="<?= $state ? (int) $state['letter']['id'] : 0; ?>">
 <input type="hidden" name="snapshot_version" value="<?= html_escape($version); ?>">
-<div class="form-group"><label>Tanggal SP II</label><input class="form-control" type="date" name="tanggal_sp2" max="<?= date('Y-m-d'); ?>" required></div>
-<button class="btn btn-primary" type="submit">Terbitkan Surat</button>
-<a class="btn btn-light" href="<?= base_url('survailen-insidental/sangsi-adminstrastif'); ?>">Kembali</a>
+<button class="btn btn-sm <?= $state ? 'btn-light-warning' : 'btn-light-primary'; ?> mt-1" type="submit"><?= $state ? 'Terbitkan Surat Baru' : 'Buat Surat Pembekuan'; ?></button>
 <?= form_close(); ?>
-</div>
