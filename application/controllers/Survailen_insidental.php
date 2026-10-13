@@ -190,6 +190,10 @@ class Survailen_insidental extends CI_Controller
         } catch (Throwable $e) {
             show_error('Surat belum diterbitkan atau telah diterbitkan pengguna lain. Muat ulang daftar.', 409); return;
         }
+        if ($this->input->post('_ajax') === '1') {
+            $this->sanksi_json(200, 'Surat berhasil diterbitkan.');
+            return;
+        }
         redirect('survailen-insidental/sangsi-adminstrastif/surat/' . (int) $id, 'location', 303);
     }
 

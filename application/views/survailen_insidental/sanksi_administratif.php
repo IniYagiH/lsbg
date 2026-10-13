@@ -80,7 +80,7 @@
                                         <?php endif; ?>
                                     <?php endif; ?>
                                 </td>
-                                <td><?php if ($state) : ?><a class="btn btn-sm btn-light-primary text-nowrap" href="<?= html_escape(base_url('survailen-insidental/sangsi-adminstrastif/surat/' . $row['id'])); ?>">Surat Pembekuan</a><?php endif; ?>
+                                <td><?php if ($state) : ?><a target="_blank" rel="noopener" class="btn btn-sm btn-light-primary text-nowrap" href="<?= html_escape(base_url('survailen-insidental/sangsi-adminstrastif/surat/' . $row['id'])); ?>">Surat Pembekuan</a><?php endif; ?>
                                     <button type="button" class="btn btn-sm btn-primary text-nowrap email-sanksi-btn mt-1" <?= empty($archive_ready) || !$state ? 'disabled' : ''; ?> data-url="<?= html_escape(base_url('survailen-insidental/sangsi-adminstrastif/kirim-email/' . $row['id'])); ?>">Kirim Email</button>
                                     <?php if (!empty($archive_ready)) {
                                         include __DIR__ . '/terbitkan_surat.php';
@@ -111,10 +111,54 @@ window.addEventListener('load', function () {
     var busy = false;
     function updateEmailCsrf(data) {
         if (!data || !data.csrf_name || !data.csrf_hash) return;
-        $('#refresh_sanksi_form input[type="hidden"]').each(function () {
+        $('#refresh_sanksi_form input[type="hidden"], .terbitkan-surat-form input[type="hidden"]').each(function () {
             if (this.name === data.csrf_name) this.value = data.csrf_hash;
         });
     }
+    $('#sanksi_table').on('submit', '.terbitkan-surat-form', function (event) {
+        event.preventDefault();
+        if (busy) return;
+        // Open synchronously with the click so browsers allow the new tab.
+        var pdfTab = window.open('about:blank', '_blank');
+        if (!pdfTab) {
+            $('#email_sanksi_message').removeClass('text-success').addClass('text-danger')
+                .text('Izinkan tab baru pada browser, lalu klik Buat Surat kembali.');
+            return;
+        }
+        pdfTab.opener = null;
+        pdfTab.document.title = 'Menyiapkan surat';
+        pdfTab.document.body.textContent = 'Sedang menerbitkan surat pembekuan...';
+        busy = true;
+        var form = $(this);
+        var button = form.find('button[type="submit"]');
+        var label = button.text();
+        button.prop('disabled', true).text('Menerbitkan...');
+        $('#refresh_sanksi_btn').prop('disabled', true);
+        $('#email_sanksi_message').removeClass('text-danger text-success').text('Sedang menerbitkan surat...');
+        $.ajax({url: form.attr('action'), method: 'POST',
+            data: form.serialize() + '&_ajax=1', dataType: 'json', timeout: 125000})
+            .done(function (data) {
+                updateEmailCsrf(data);
+                if (!data.success) {
+                    if (!pdfTab.closed) pdfTab.close();
+                    $('#email_sanksi_message').addClass('text-danger').text(data.message);
+                    return;
+                }
+                if (!pdfTab.closed) pdfTab.location.replace(form.attr('data-pdf-url'));
+                window.location.reload();
+            })
+            .fail(function (xhr) {
+                updateEmailCsrf(xhr.responseJSON);
+                if (!pdfTab.closed) pdfTab.close();
+                $('#email_sanksi_message').addClass('text-danger').text(
+                    'Penerbitan belum dapat dikonfirmasi. Muat ulang daftar untuk memeriksa status surat sebelum mencoba kembali.');
+            })
+            .always(function () {
+                busy = false;
+                button.prop('disabled', false).text(label);
+                $('#refresh_sanksi_btn').prop('disabled', false);
+            });
+    });
     $('#sanksi_table').on('click', '.email-sanksi-btn', function () {
         if (busy) return;
         busy = true;
@@ -151,10 +195,7 @@ window.addEventListener('load', function () {
         $('#refresh_sanksi_message').removeClass('text-danger text-success').text('Sedang mengambil data dari SIKI. Mohon tunggu.');
         var form = $(this);
         function updateCsrf(data) {
-            if (!data || !data.csrf_name || !data.csrf_hash) return;
-            form.find('input[type="hidden"]').each(function () {
-                if (this.name === data.csrf_name) this.value = data.csrf_hash;
-            });
+            updateEmailCsrf(data);
         }
         $.ajax({url: form.attr('action'), method: 'POST', data: form.serialize(), dataType: 'json', timeout: 125000})
             .done(function (data) {
